@@ -35,9 +35,6 @@ PHP-Dashboard ohne Framework. Datenbank wahlweise **SQLite** (ohne Einrichtung) 
 ├── widgets/         Startseiten-Widgets (Plug & Play, je ein Ordner)
 ├── clients/
 │   └── nexus-desktop/  Windows-Client für VRC Nexus (Python, OSC & Logs) – siehe eigenes README
-├── apps/
-│   ├── vrc-nexus/          VRC Nexus als eigenständige Windows-App (Electron, ohne Server) – siehe eigenes README
-│   └── vrc-nexus-android/  VRC Nexus als Android-App (Capacitor, ohne PC-Funktionen) – siehe eigenes README
 ├── tools/           Kommandozeilen-Werkzeuge (db.php) – per .htaccess gesperrt
 ├── uploads/         öffentliche Bilder der Galerie-Vorlage
 └── data/            ALLES Private – per .htaccess gesperrt, nicht im Repository
@@ -305,12 +302,13 @@ das lässt sich in VRC Nexus → Konto einstellen (Recht `system.manage`). Vorau
 - **client.php** kann jetzt zusätzlich `notes` (Memo-Abgleich), `send` (Befehle an den PC, z. B. vom Handy) und `remote` (Live-Status für die Fernbedienung).
   Die Windows-App ist damit ein vollwertiger Client des Dashboards (wie der Python-Client), die Android-App eine Fernbedienung.
 
-### VRC Nexus als eigenständige Windows-App (`apps/vrc-nexus`)
+### VRC Nexus als eigenständige Windows-App (eigenes Repository `xxloonaxx/dashbord`)
 
 Der komplette Nexus auch **ohne Server**: Electron-App mit eingebautem Backend (JavaScript-Portierung der PHP-Module,
 SQLite lokal, Sitzungs-Cookie per Windows-DPAPI verschlüsselt). Gleiche Oberfläche, alle Reiter, dazu Spiel-Log & OSC direkt eingebaut,
 Infobereich, Start mit Windows, Benachrichtigung beim Beobachten. EXE (portabel + Installer) baut GitHub Actions
 („VRC Nexus App (Windows)“). Die Server-Version bleibt unverändert.
+Die Apps (Windows, Android, Stream Deck) liegen seit dem Umzug im Repository **xxloonaxx/dashbord**, diese Webseite hier in **xxloonaxx/ghostenode**.
 
 ### Nexus: 🔔 Benachrichtigungen, 🛒 Shop & 🌍 VRChat weltweit
 
