@@ -281,6 +281,13 @@ Favoriten alle 15 min, Weltnamen werden gespeichert) und führt nichts automatis
 solange die Seite offen ist. VRChat bittet darum, dass sich Programme per User-Agent mit einer Kontaktmöglichkeit ausweisen –
 das lässt sich in VRC Nexus → Konto einstellen (Recht `system.manage`). Voraussetzung: cURL und ausgehende Verbindungen zu `api.vrchat.cloud`.
 
+### Nexus: 🌐 Spielzeug-Fernsteuerung (`toyrelay.php`)
+
+Briefkasten für die VRC-Nexus-App: Zwei Apps steuern sich gegenseitig die Spielzeuge über die VRChat-User-ID – im selben WLAN direkt,
+sonst automatisch über diese Seite (fest in der App eingebaut, nichts einzutragen). Die Seite vermittelt nur; geprüft wird in der App
+(Freigabeliste + Freischalt-Schlüssel des Absenders). Gespeichert wird nur kurz (90 s) unter `data/toyrelay/`, statt der User-ID steht dort ein Hash,
+lesen darf nur die App, die den Briefkasten angelegt hat. Bremse: 300 Anfragen pro IP und Minute. **Einfach `toyrelay.php` mit hochladen.**
+
 ### Nexus: Zeitleiste, Begegnungen & Online-Heatmap
 
 - **📊 Zeitleiste** (Statistik): Für heute, gestern und vorgestern zeigt sie als Balken über 24 Stunden, welcher Freund wann online war; eine rote Linie markiert „jetzt“.
