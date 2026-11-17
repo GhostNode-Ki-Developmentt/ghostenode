@@ -7,6 +7,7 @@ declare(strict_types=1);
  * Zusätzlich mit dem angefragten SHA-512-Passwortschutz.
  */
 require_once __DIR__ . '/inc/core/common.php';
+require_once __DIR__ . '/inc/core/pages.php'; // Lädt auch das bestehende Auth-System der Website.
 auth_require_setup();
 
 const ROADMAP_PASSWORD_SHA512 = '8af0d7279882a570a1f446fc368d40db612ad550c8a9b88f5ef145679462f8b88b730e531e7453063cb1c74fea4e7d6af1c0ac6b375a85b6e18ce9d7fb9e573a';
