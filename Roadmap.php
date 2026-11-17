@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * Nexus 3.x Roadmap – GhostNode KI Development
+ * Nexus 3.x / 4.x Roadmap – GhostNode KI Development
  * Läuft innerhalb des bestehenden GhostNode-Webprojekts.
  * Zusätzlich mit dem angefragten SHA-512-Passwortschutz.
  */
@@ -83,12 +83,14 @@ $releases = [
 '3.2.0 – Messenger'=>['Signal-Einzelchats','Matrix-Gruppenchats','Nachrichtenhistorie','Android-Benachrichtigungen','Medien und Reaktionen'],
 '3.3.0 – Voice & Integrationen'=>['WebRTC und Opus','Voice-Räume','Discord-Bot','Fediverse'],
 '3.4.0 – Pulse & Discovery'=>['VRChat-News','Reddit-Integration','Community-Discovery'],
-'3.x+ – Further Development'=>['Weitere Mobile-Funktionen','Weitere Stream-Deck-Funktionen','Weitere Integrationen']
+'3.x+ – Further Development'=>['Weitere Mobile-Funktionen','Weitere Stream-Deck-Funktionen','Weitere Integrationen'],
+'4.0.0 – UI & Navigation'=>['Neues Tab-System für die Startseite: Funktionen thematisch gruppieren und die bisherige Kachelansicht übersichtlicher machen','Tabs für Übersicht, Medien, Verknüpfungen, Gruppe, Systemwerkzeuge, Marktplatz und Sonstiges','Aktiven Tab optisch hervorheben und optional den zuletzt geöffneten Tab merken','Startseiten-Kacheln modernisieren: einheitliche Größen, Abstände, Icons und Beschriftungen','Responsive Darstellung für unterschiedliche Fenstergrößen und Android'],
+'4.1.0 – Settings & Persistence'=>['Checkboxen und Toggles im Nexus-Design überarbeiten: klare Zustände, bessere Kontraste und dezente Animationen','Einheitliche Checkbox-Komponenten für die gesamte Anwendung','UI-Auswahlzustände und persönliche Oberflächenoptionen in einer versionierten JSON-Konfiguration speichern','JSON-Konfiguration für Tabs, sichtbare Bereiche und ausgewählte Kacheloptionen verwenden','Import und Export der Oberflächenkonfiguration','Konfigurationsversion und Migration älterer Einstellungen sicherstellen']
 ];
 $technical = ['Lokale Funktionen bleiben kostenlos.','Online-Dienste sind standardmäßig deaktiviert.','Online-Dienste benötigen ausdrückliche Aktivierung.','VRChat-Identität ist primäre Identitätszuordnung.','Lokale Lizenzprüfung funktioniert ohne Internet.','Private Signaturschlüssel bleiben außerhalb des Clients.','Online-Berechtigungen werden serverseitig geprüft.','Keine Secrets in Git.','Backups vor produktiven Änderungen.','Modulare Architektur.','Desktop- und Android-Kompatibilität.'];
 $total = array_sum(array_map('count', $modules));
 ?>
-<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nexus 3.x Roadmap · GhostNode</title><link rel="stylesheet" href="assets/css/hud.css"><link rel="stylesheet" href="assets/css/index.css"><link rel="stylesheet" href="assets/css/format.css"><link rel="stylesheet" href="assets/css/widgets.css">
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nexus 3.x / 4.x Roadmap · GhostNode</title><link rel="stylesheet" href="assets/css/hud.css"><link rel="stylesheet" href="assets/css/index.css"><link rel="stylesheet" href="assets/css/format.css"><link rel="stylesheet" href="assets/css/widgets.css">
 <style>
 .roadmap-wrap{width:100%;max-width:980px;margin:0 auto;padding:0;position:relative;z-index:2}
 .roadmap-hero{padding:24px 0 18px;margin:24px 0 18px;border-bottom:2px solid var(--border-color);background:transparent}
@@ -143,8 +145,8 @@ $total = array_sum(array_map('count', $modules));
 <?php else: ?><a class="btn btn-sm" href="?edit=1">✎ Bearbeiten</a><?php endif; ?>
 </div>
 <?php if ($show_edit_login): ?><form class="rm-edit-login" method="post"><strong>Bearbeitungsmodus freischalten</strong><p class="rm-muted">Die Roadmap bleibt öffentlich lesbar. Nur Änderungen benötigen das Passwort.</p><label for="roadmapPassword">Passwort</label><input id="roadmapPassword" name="password" type="password" autocomplete="current-password" required autofocus><input type="hidden" name="csrf" value="<?= e($_SESSION['roadmap_csrf']) ?>"><button class="btn btn-sm btn-gold" name="roadmap_login" value="1">Bearbeiten freischalten</button><?php if ($error !== ''): ?><p class="rm-login-error"><?= e($error) ?></p><?php endif; ?></form><?php endif; ?>
-<header class="roadmap-hero"><div class="eyebrow">GHOSTNODE KI DEVELOPMENT · DEVELOPMENT ROADMAP</div><h1>NEXUS 3</h1><p>The next generation of VRChat Companion.<br>Eine eigenständige VRChat-Companion-Anwendung mit lokalen Funktionen, Community, Kommunikation und Integrationen.</p><div class="rm-pills"><span class="rm-pill">Version generation 3.x</span><span class="rm-pill">Desktop & Android</span><span class="rm-pill">GhostNode Online · Opt-in</span></div></header>
-<div class="rm-stats"><div class="rm-card"><strong><?= count($modules) ?></strong><span class="rm-muted">Funktionsbereiche</span></div><div class="rm-card"><strong><?= $total ?></strong><span class="rm-muted">Feature-Punkte</span></div><div class="rm-card"><strong>3.x</strong><span class="rm-muted">Mehrere Releases</span></div></div>
+<header class="roadmap-hero"><div class="eyebrow">GHOSTNODE KI DEVELOPMENT · DEVELOPMENT ROADMAP</div><h1>NEXUS 3 / 4</h1><p>The next generation of VRChat Companion.<br>Eine eigenständige VRChat-Companion-Anwendung mit lokalen Funktionen, Community, Kommunikation und Integrationen.</p><div class="rm-pills"><span class="rm-pill">Version generation 3.x / 4.x</span><span class="rm-pill">Desktop & Android</span><span class="rm-pill">GhostNode Online · Opt-in</span></div></header>
+<div class="rm-stats"><div class="rm-card"><strong><?= count($modules) ?></strong><span class="rm-muted">Funktionsbereiche</span></div><div class="rm-card"><strong><?= $total ?></strong><span class="rm-muted">Feature-Punkte</span></div><div class="rm-card"><strong>3.x / 4.x</strong><span class="rm-muted">Mehrere Release-Generationen</span></div></div>
 <section class="rm-section"><h2>Produktprinzipien</h2><p class="rm-muted">Grundsätze für die gesamte Nexus-3-Generation.</p><div class="rm-card rm-principles"><?php foreach($principles as $p): ?><div>✓ <?= e($p) ?></div><?php endforeach; ?></div></section>
 <section class="rm-section"><h2>Alle Funktionen</h2><p class="rm-muted">Alle bisher gesammelten Auflistungen. <?php echo $edit_mode ? "Bearbeitungsmodus aktiv – Fortschritt wird lokal im Browser gespeichert." : "Öffentliche Ansicht – zum Ändern bitte den Bearbeitungsmodus freischalten."; ?></p>
 <div class="rm-toolbar"><input id="rmSearch" type="search" placeholder="Funktionen durchsuchen …"><select id="rmFilter"><option value="all">Alle Bereiche</option><?php foreach($modules as $name=>$items): ?><option value="<?= e($name) ?>"><?= e($name) ?></option><?php endforeach; ?></select><button type="button" id="rmExpand">Alle öffnen</button><button type="button" id="rmCollapse">Alle schließen</button><?php if ($edit_mode): ?><button type="button" id="rmReset">Fortschritt zurücksetzen</button><?php endif; ?></div>
