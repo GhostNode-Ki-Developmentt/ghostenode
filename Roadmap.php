@@ -48,10 +48,10 @@ if (isset($_POST['roadmap_logout']) && hash_equals($_SESSION['roadmap_csrf'], (s
 }
 if (empty($_SESSION['roadmap_authenticated'])):
 ?>
-<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nexus Roadmap – Geschützt</title>
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nexus Roadmap – Geschützt · GhostNode</title><link rel="stylesheet" href="assets/css/hud.css"><link rel="stylesheet" href="assets/css/index.css"><link rel="stylesheet" href="assets/css/format.css"><link rel="stylesheet" href="assets/css/widgets.css">
 <style>
 *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:20px;background:#080c14;color:#edf4ff;font:15px system-ui}.box{width:min(100%,420px);padding:30px;border:1px solid #2d4662;border-radius:20px;background:#111b29;box-shadow:0 22px 70px #0008}.eyebrow{color:#70e0dc;font-size:11px;letter-spacing:.15em;font-weight:800}.box h1{margin:10px 0}.box p{color:#aebed1}input{width:100%;padding:12px;border:1px solid #34465e;border-radius:9px;background:#0b1420;color:white;font:inherit}button{width:100%;margin-top:14px;padding:12px;border:0;border-radius:9px;background:#55b9ff;color:#06111c;font:inherit;font-weight:800;cursor:pointer}.error{color:#ff9a9a;margin-top:12px}
-</style></head><body><form class="box" method="post"><div class="eyebrow">GHOSTNODE KI DEVELOPMENT</div><h1>Nexus 3.x Roadmap</h1><p>Dieser Bereich ist zusätzlich passwortgeschützt.</p><label for="password">Passwort</label><input id="password" name="password" type="password" autocomplete="current-password" required autofocus><input type="hidden" name="csrf" value="<?= e($_SESSION['roadmap_csrf']) ?>"><button name="roadmap_login" value="1">Anmelden</button><?php if ($error !== ''): ?><div class="error"><?= e($error) ?></div><?php endif; ?></form></body></html>
+.box{width:min(100%,420px);padding:28px;background:var(--panel-bg);border:1px solid var(--border-color);border-left:4px solid var(--accent-gold);clip-path:var(--cut-md);backdrop-filter:blur(10px);box-shadow:0 4px 24px #0008}.box .eyebrow{color:var(--accent-cyan);font-size:.7rem;letter-spacing:3px;font-weight:700;text-transform:uppercase}.box h1{font-size:1.5rem;letter-spacing:2px;margin:12px 0}.box p{color:var(--text-muted)}.box label{display:block;color:var(--text-muted);font-size:.72rem;letter-spacing:1px;text-transform:uppercase;margin:12px 0 5px}.box input[type=password]{width:100%}.box button{margin-top:14px;width:100%}.box .error{color:var(--accent-red);margin-top:12px;padding:9px;border:1px solid rgba(255,85,85,.35);background:rgba(255,85,85,.07)}</style></head><body><form class="box" method="post"><div class="eyebrow">GHOSTNODE KI DEVELOPMENT</div><h1>Nexus 3.x Roadmap</h1><p>Dieser Bereich ist zusätzlich passwortgeschützt.</p><label for="password">Passwort</label><input id="password" name="password" type="password" autocomplete="current-password" required autofocus><input type="hidden" name="csrf" value="<?= e($_SESSION['roadmap_csrf']) ?>"><button name="roadmap_login" value="1">Anmelden</button><?php if ($error !== ''): ?><div class="error"><?= e($error) ?></div><?php endif; ?></form></body></html>
 <?php
 exit;
 endif;
@@ -86,11 +86,49 @@ $releases = [
 $technical = ['Lokale Funktionen bleiben kostenlos.','Online-Dienste sind standardmäßig deaktiviert.','Online-Dienste benötigen ausdrückliche Aktivierung.','VRChat-Identität ist primäre Identitätszuordnung.','Lokale Lizenzprüfung funktioniert ohne Internet.','Private Signaturschlüssel bleiben außerhalb des Clients.','Online-Berechtigungen werden serverseitig geprüft.','Keine Secrets in Git.','Backups vor produktiven Änderungen.','Modulare Architektur.','Desktop- und Android-Kompatibilität.'];
 $total = array_sum(array_map('count', $modules));
 ?>
-<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nexus 3.x Roadmap · GhostNode</title><link rel="stylesheet" href="assets/css/hud.css">
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nexus 3.x Roadmap · GhostNode</title><link rel="stylesheet" href="assets/css/hud.css"><link rel="stylesheet" href="assets/css/index.css"><link rel="stylesheet" href="assets/css/format.css"><link rel="stylesheet" href="assets/css/widgets.css">
 <style>
-.roadmap-wrap{max-width:1160px;margin:28px auto 65px;padding:0 20px}.roadmap-hero{padding:34px;border:1px solid #2d4662;border-radius:22px;background:linear-gradient(125deg,#17304b,#111a29 65%,#292044)}.roadmap-hero .eyebrow{color:#70e0dc;font-size:11px;letter-spacing:.16em;font-weight:800}.roadmap-hero h1{font-size:clamp(40px,7vw,66px);margin:12px 0;line-height:1}.roadmap-hero p,.rm-muted{color:#aebed1}.rm-pills{display:flex;gap:8px;flex-wrap:wrap}.rm-pill,.rm-tag{border:1px solid #ffffff24;border-radius:99px;padding:4px 10px;font-size:11px}.rm-stats,.rm-grid,.rm-releases{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0 30px}.rm-card,.rm-module,.rm-release{border:1px solid var(--line,#34465e);border-radius:14px;background:var(--panel,#111b29);padding:15px}.rm-card strong{font-size:26px;display:block}.rm-section{margin:30px 0}.rm-section h2{margin-bottom:6px}.rm-principles,.rm-tech{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.rm-principles div,.rm-tech div{padding:11px;border:1px solid #ffffff12;border-radius:9px}.rm-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:15px 0}.rm-toolbar input,.rm-toolbar select,.rm-toolbar button{padding:10px;border:1px solid var(--line,#34465e);border-radius:8px;background:var(--panel,#111b29);color:inherit}.rm-toolbar input{flex:1;min-width:200px}.rm-toolbar button{cursor:pointer}.rm-module{padding:0;margin:10px 0;overflow:hidden}.rm-module summary{display:flex;align-items:center;gap:12px;cursor:pointer;list-style:none;padding:15px}.rm-module summary::-webkit-details-marker{display:none}.rm-num{background:#55b9ff20;color:#55b9ff;border-radius:9px;padding:8px;font-weight:bold}.rm-title{flex:1}.rm-title small{display:block;color:#9bacc1}.rm-body{padding:14px;border-top:1px solid #ffffff12}.rm-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.rm-feature{display:flex;gap:8px;padding:8px;border:1px solid #ffffff10;border-radius:8px;font-size:13px}.rm-feature input{accent-color:#55b9ff;margin-top:4px}.rm-feature.done span{text-decoration:line-through;opacity:.55}.rm-count{font-size:12px;color:#9bacc1}.rm-releases{grid-template-columns:repeat(2,1fr)}.rm-release h3{margin:0 0 8px}.rm-release ul{padding-left:18px;margin:0}.rm-logout{float:right}@media(max-width:700px){.roadmap-wrap{padding:0 12px}.roadmap-hero{padding:23px}.rm-stats{gap:7px}.rm-stats .rm-card{padding:10px}.rm-stats strong{font-size:21px}.rm-principles,.rm-tech,.rm-list,.rm-releases{grid-template-columns:1fr}.rm-tag{display:none}.rm-module summary{padding:12px}}
-</style></head><body>
-<div class="roadmap-wrap">
+.roadmap-wrap{width:100%;max-width:980px;margin:0 auto;padding:0;position:relative;z-index:2}
+.roadmap-hero{padding:24px 0 18px;margin:24px 0 18px;border-bottom:2px solid var(--border-color);background:transparent}
+.roadmap-hero .eyebrow{display:flex;align-items:center;gap:8px;color:var(--accent-cyan);font-size:.7rem;letter-spacing:3px;font-weight:700;text-transform:uppercase}
+.roadmap-hero .eyebrow:before{content:"";width:6px;height:6px;background:var(--accent-cyan);box-shadow:0 0 10px var(--accent-cyan)}
+.roadmap-hero h1{font-size:2.4rem;letter-spacing:5px;margin:10px 0}
+.roadmap-hero p,.rm-muted{color:var(--text-muted);line-height:1.55}
+.rm-pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.rm-pill,.rm-tag{display:inline-block;padding:3px 8px;border:1px solid var(--border-color);color:var(--accent-cyan);font-size:.65rem;letter-spacing:1px;text-transform:uppercase}
+.rm-stats,.rm-releases{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0 30px}
+.rm-card,.rm-module,.rm-release{background:var(--panel-bg);border:1px solid var(--border-color);clip-path:var(--cut-sm);backdrop-filter:blur(8px)}
+.rm-card{padding:16px}
+.rm-card strong{display:block;color:var(--accent-gold);font-size:1.65rem}
+.rm-section{margin:30px 0}
+.rm-section h2{color:var(--accent-cyan);font-size:.9rem;letter-spacing:2px;text-transform:uppercase;border-bottom:1px solid var(--border-color);padding-bottom:8px;margin-bottom:8px}
+.rm-principles,.rm-tech{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.rm-principles div,.rm-tech div{padding:10px;border:1px solid rgba(56,213,230,.14);background:rgba(56,213,230,.035);font-size:.82rem}
+.rm-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:15px 0}
+.rm-toolbar input,.rm-toolbar select{width:auto;min-width:0;flex:1 1 180px}
+.rm-toolbar button{font-family:inherit}
+.rm-module{padding:0;margin:10px 0;overflow:hidden}
+.rm-module summary{display:flex;align-items:center;gap:12px;cursor:pointer;list-style:none;padding:14px}
+.rm-module summary::-webkit-details-marker{display:none}
+.rm-module summary:hover{background:var(--panel-hover)}
+.rm-num{background:rgba(56,213,230,.1);border:1px solid var(--border-color);color:var(--accent-cyan);padding:7px 9px;font-weight:800}
+.rm-title{flex:1;min-width:0}
+.rm-title strong{color:#fff;letter-spacing:.4px}
+.rm-title small{display:block;color:var(--text-muted);font-size:.68rem;margin-top:3px}
+.rm-body{padding:14px;border-top:1px solid var(--border-color)}
+.rm-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.rm-feature{display:flex;align-items:flex-start;gap:8px;padding:8px;border:1px solid rgba(56,213,230,.12);background:rgba(4,6,9,.35);font-size:.78rem;line-height:1.4;cursor:pointer}
+.rm-feature input{flex:0 0 auto;margin-top:3px}
+.rm-feature.done span{text-decoration:line-through;opacity:.55}
+.rm-count{font-size:.7rem;color:var(--text-muted);white-space:nowrap}
+.rm-releases{grid-template-columns:repeat(2,minmax(0,1fr))}
+.rm-release{padding:15px}
+.rm-release h3{margin:0 0 9px;color:var(--accent-gold);font-size:.85rem;letter-spacing:1px}
+.rm-release ul{padding-left:18px;margin:0;color:var(--text-muted);font-size:.8rem;line-height:1.7}
+.rm-logout{display:flex;justify-content:flex-end;margin:12px 0}
+.rm-logout button{width:auto}
+@media(max-width:700px){.roadmap-wrap{padding:0}.roadmap-hero h1{font-size:1.8rem;letter-spacing:3px}.rm-stats{gap:7px}.rm-stats .rm-card{padding:10px}.rm-stats strong{font-size:1.3rem}.rm-principles,.rm-tech,.rm-list,.rm-releases{grid-template-columns:1fr}.rm-tag{display:none}.rm-module summary{padding:11px}.rm-toolbar input,.rm-toolbar select{flex-basis:100%}}</style></head><body>
+<div class="wrapper idx roadmap-wrap">
 <form method="post" class="rm-logout"><input type="hidden" name="csrf" value="<?= e($_SESSION['roadmap_csrf']) ?>"><button name="roadmap_logout" value="1">Abmelden</button></form>
 <header class="roadmap-hero"><div class="eyebrow">GHOSTNODE KI DEVELOPMENT · DEVELOPMENT ROADMAP</div><h1>NEXUS 3</h1><p>The next generation of VRChat Companion.<br>Eine eigenständige VRChat-Companion-Anwendung mit lokalen Funktionen, Community, Kommunikation und Integrationen.</p><div class="rm-pills"><span class="rm-pill">Version generation 3.x</span><span class="rm-pill">Desktop & Android</span><span class="rm-pill">GhostNode Online · Opt-in</span></div></header>
 <div class="rm-stats"><div class="rm-card"><strong><?= count($modules) ?></strong><span class="rm-muted">Funktionsbereiche</span></div><div class="rm-card"><strong><?= $total ?></strong><span class="rm-muted">Feature-Punkte</span></div><div class="rm-card"><strong>3.x</strong><span class="rm-muted">Mehrere Releases</span></div></div>
