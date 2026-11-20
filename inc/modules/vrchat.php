@@ -266,6 +266,14 @@ function vrc_migrate(PDO $db): void {
         PRAGMA user_version = 13;
     ");
     }
+    if ((int)$db->query('PRAGMA user_version')->fetchColumn() < 14) {
+        // Community (3.2): NSFW-Beschreibungen zu Welten – eine je Person und Welt, nur Verified 18+ mit NSFW an
+        $db->exec("
+        CREATE TABLE IF NOT EXISTS comm_world_notes (world_id TEXT NOT NULL, author TEXT NOT NULL, text TEXT NOT NULL DEFAULT '', created INTEGER NOT NULL, updated INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (world_id, author));
+        CREATE INDEX IF NOT EXISTS idx_comm_wnotes ON comm_world_notes(world_id, updated);
+        PRAGMA user_version = 14;
+    ");
+    }
 }
 
 // ---------- Verschlüsselung der Sitzungs-Cookies ----------

@@ -130,6 +130,30 @@ function nc_profile_save(array $who, array $in): array {
     return nc_profile($who, $who['vrc_id']);
 }
 
+// ---------- Welten (3.2): NSFW-Beschreibungen ----------
+function nc_world_id(string $w): string { $w = strtolower(trim($w)); if (!preg_match('/^wrld_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/', $w)) throw new NcError('Ungültige Welt-ID.'); return $w; }
+/** Beschreibungen nur für Verified 18+ mit NSFW an – sonst nur der Hinweis, dass es welche gibt (keine Inhalte) */
+function nc_world(array $who, string $world): array {
+    $world = nc_world_id($world);
+    $c = nc_db()->prepare('SELECT COUNT(*) FROM comm_world_notes WHERE world_id = ?'); $c->execute([$world]);
+    $out = ['world' => $world, 'nsfw' => !empty($who['_nsfw']), 'count' => (int)$c->fetchColumn()];
+    if (empty($who['_nsfw'])) return $out;
+    $st = nc_db()->prepare('SELECT n.author, n.text, n.updated, a.display_name FROM comm_world_notes n LEFT JOIN nexus_accounts a ON a.vrc_id = n.author WHERE n.world_id = ? ORDER BY n.updated DESC LIMIT 50');
+    $st->execute([$world]);
+    $out['notes'] = array_map(fn($r) => ['author' => $r['author'], 'name' => (string)($r['display_name'] ?? ''), 'text' => $r['text'], 'updated' => (int)$r['updated'], 'own' => $r['author'] === $who['vrc_id']], $st->fetchAll(PDO::FETCH_ASSOC));
+    return $out;
+}
+function nc_world_note(array $who, string $world, string $text): array {
+    nc_need_nsfw($who);
+    nc_can_post($who);
+    $world = nc_world_id($world);
+    $text = nc_cut($text, 2000);
+    $db = nc_db();
+    $db->prepare('DELETE FROM comm_world_notes WHERE world_id = ? AND author = ?')->execute([$world, $who['vrc_id']]);
+    if ($text !== '') $db->prepare('INSERT INTO comm_world_notes (world_id, author, text, created, updated) VALUES (?, ?, ?, ?, ?)')->execute([$world, $who['vrc_id'], $text, time(), time()]);
+    return nc_world($who, $world);
+}
+
 // ---------- Bilder ----------
 function nc_upload(array $who, array $in): array {
     nc_can_post($who);
@@ -330,6 +354,11 @@ function nc_mod(array $who, string $do, array $in): array {
             $db->prepare('DELETE FROM comm_sanctions WHERE vrc_id = ?')->execute([$target]);
             $db->prepare('INSERT INTO comm_sanctions (vrc_id, mute_until, banned, note, by_id, at) VALUES (?, ?, ?, ?, ?, ?)')->execute([$target, $mute, $ban, $note, $who['vrc_id'], time()]);
             nw_log($who['vrc_id'], 'Mod: ' . ['mute' => 'stummgeschaltet', 'ban' => 'gesperrt', 'unban' => 'Sperre aufgehoben'][$do], $target, $note . ($do === 'mute' ? ' bis ' . date('d.m.Y H:i', $mute) : ''));
+            break;
+        case 'wnote_del':   // 3.2: NSFW-Weltbeschreibung entfernen
+            $w = nc_world_id((string)($in['world'] ?? '')); $a = strtolower((string)($in['vrc_id'] ?? ''));
+            $db->prepare('DELETE FROM comm_world_notes WHERE world_id = ? AND author = ?')->execute([$w, $a]);
+            nw_log($who['vrc_id'], 'Mod: Weltbeschreibung entfernt', $a, $w . ($note ? ' – ' . $note : ''));
             break;
         case 'resolve':
             $db->prepare("UPDATE comm_reports SET status = 'done', resolver = ?, result = ? WHERE id = ?")->execute([$who['vrc_id'], $note ?: 'erledigt', (int)($in['report'] ?? 0)]);

@@ -65,6 +65,13 @@ const ok = (c, m) => { if (!c) { console.log('✖', m); process.exitCode = 1; } 
   r = await call('nexuscomm.php', 'post', Object.assign({ text: 'wieder da' }, b)); ok(r[0] === 200, 'Sperre aufgehoben');
   r = await call('nexuscomm.php', 'mod', Object.assign({ do: 'ban', vrc_id: A }, a)); ok(r[0] === 400, 'Selbst-Sperre verboten');
   r = await call('nexuscomm.php', 'mod_queue', a); ok(r[1].log.length >= 4, 'Protokoll: ' + r[1].log.length + ' Einträge');
+  // NSFW-Weltbeschreibungen (3.2): nur Verified 18+ mit NSFW an
+  const W = 'wrld_00000000-0000-4000-8000-000000000101';
+  r = await call('nexuscomm.php', 'world_note', Object.assign({ world: W, text: 'Nur ab 18 – Afterdark-Bereich hinten links' }, b)); ok(r[0] === 400 && /NSFW/.test(r[1].error), 'Weltbeschreibung: ohne Freigabe nicht schreibbar');
+  r = await call('nexuscomm.php', 'world_note', Object.assign({ world: W, text: 'Nur ab 18 – Afterdark-Bereich hinten links' }, a)); ok(r[1].notes.length === 1 && r[1].notes[0].own, 'Weltbeschreibung gespeichert');
+  r = await call('nexuscomm.php', 'world', Object.assign({ world: W }, b)); ok(r[1].count === 1 && r[1].notes === undefined, 'B sieht nur die Anzahl, keinen Inhalt');
+  r = await call('nexuscomm.php', 'world', Object.assign({ world: 'wrld_x' }, a)); ok(r[0] === 400, 'ungültige Welt-ID');
+  r = await call('nexuscomm.php', 'mod', Object.assign({ do: 'wnote_del', world: W, vrc_id: A }, a)); r = await call('nexuscomm.php', 'world', Object.assign({ world: W }, a)); ok(r[1].count === 0, 'Mod entfernt Beschreibung');
   // Toy-Relay (3.1.1): nur Verified 18+ mit NSFW an, nur der eigene Briefkasten
   const box = id => require('crypto').createHash('sha256').update('vrcnx-toy|' + id.toLowerCase()).digest('hex');
   const KEY = 'k'.repeat(40);
