@@ -9,6 +9,7 @@
  *   POST nexusacct.php?a=me       {"token"}                     → {"account":{…},"devices":[…]}
  *   POST nexusacct.php?a=nsfw     {"token","on":true|false}     → {"account":{…}}              (nur mit Verified 18+)
  *   POST nexusacct.php?a=recheck  {"token"}                     → {"account":{…}}
+ *   POST nexusacct.php?a=peer     {"token","uid"}              → {"nsfw":bool}  (nur wenn man selbst NSFW-freigegeben ist)
  *   POST nexusacct.php?a=logout   {"token","device"?}
  * Webseite: GET nexusacct.php → Verwaltung (Recht „admin.access“): Dienst-Konto, Konten, Sperren.
  */
@@ -34,6 +35,15 @@ if (isset($_GET['a'])) {
             case 'me': nx_verified18($acc); $out(['account' => nx_public($acc), 'devices' => nx_devices($acc)]);
             case 'nsfw': $out(['account' => nx_set_nsfw($acc, !empty($in['on']))]);
             case 'recheck': $out(['account' => nx_recheck($acc)]);
+            case 'peer': {
+                // Darf die andere Person NSFW (z. B. Spielzeug-Fernsteuerung)? Nur für selbst freigegebene Konten abfragbar.
+                nx_require_nsfw($acc);
+                $pid = strtolower(trim((string)($in['uid'] ?? '')));
+                if (!nx_uid_ok($pid)) throw new NxError('Ungültige VRChat-User-ID.');
+                $p = nx_account($pid);
+                $ok = $p && empty($p['banned']) && nx_nsfw_allowed($p);
+                $out(['uid' => $pid, 'nsfw' => (bool)$ok]);
+            }
             case 'logout': nx_logout($acc, preg_replace('/[^0-9a-f]/', '', (string)($in['device'] ?? ''))); $out(['ok' => true]);
         }
         $out(['error' => 'Unbekannte Aktion.'], 400);
