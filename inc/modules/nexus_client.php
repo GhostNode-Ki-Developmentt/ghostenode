@@ -24,7 +24,10 @@ const NC_KINDS = [
     'vrc_quit'     => ['⏹️', 'VRChat beendet'],
     'note'         => ['📝', 'Notiz'],
 ];
-const NC_OSC_KINDS = ['chatbox', 'typing', 'param', 'input'];
+const NC_OSC_KINDS = ['chatbox', 'typing', 'param', 'input', 'nexus'];
+/** „nexus“: Aktionen wie die Stream-Deck-Tasten, ausgeführt von der Windows-App (Nexus-Knöpfe in der Android-App) */
+const NC_NEXUS_ACTIONS = ['toggle', 'param_step', 'preset', 'rotator', 'launch', 'rejoin', 'camera', 'macro', 'macro_stop', 'instance_create', 'avatar', 'friend',
+    'overlay', 'speech', 'media', 'quicktext', 'scene', 'record', 'chatmods', 'tts', 'open'];
 const NC_MAX_TOKENS = 10;
 
 // ---------- Geräte-Tokens ----------
@@ -239,6 +242,17 @@ function nc_osc_enqueue(int $uid, string $kind, array $in): int {
             break;
         case 'typing':
             $payload = ['on' => !empty($in['on'])];
+            break;
+        case 'nexus':
+            $action = (string)($in['action'] ?? '');
+            if (!in_array($action, NC_NEXUS_ACTIONS, true)) throw new RuntimeException('Unbekannte Nexus-Aktion.');
+            $data = [];
+            foreach ((array)($in['data'] ?? []) as $k => $v) {
+                if (count($data) >= 20 || !preg_match('/^[a-z_]{1,20}$/', (string)$k)) continue;
+                if (is_bool($v) || is_int($v) || is_float($v)) $data[$k] = $v;
+                elseif (is_string($v)) $data[$k] = mb_substr($v, 0, 500);
+            }
+            $payload = ['action' => $action, 'data' => $data];
             break;
         case 'param':
             $name = trim((string)($in['name'] ?? ''));
