@@ -51,6 +51,42 @@ function nc_need_nsfw(array $who): void { if (empty($who['_nsfw'])) throw new Nc
 function nc_cut(string $s, int $n): string { return mb_substr(trim(str_replace("\r", '', $s)), 0, $n); }
 
 // ---------- Profile ----------
+/** Steckbrief: nur feste Werte (Liste in der App), alles andere wird verworfen */
+const NC_FACT_SETS = [
+    'orientation' => ['', 'ace', 'hetero', 'gay', 'bi', 'lesbian', 'pan', 'questioning', 'other'],
+    'relationship' => ['', 'single', 'taken', 'open', 'complicated', 'married'],
+    'looking' => ['', 'yes', 'no'],
+];
+const NC_GENDERS = ['female', 'male', 'trans_female', 'trans_male', 'nonbinary'];
+const NC_NSFW_SETS = [
+    'position' => ['', 'top', 'vers_top', 'versatile', 'vers_bottom', 'bottom', 'side'],
+    'behavior' => ['', 'dominant', 'submissive', 'switch', 'versatile'],
+    'open_contact' => ['', 'yes', 'no', 'ask'],
+    'safer' => ['', 'always', 'sometimes', 'never', 'talk'],
+];
+function nc_facts(array $in): array {
+    $out = [];
+    foreach (NC_FACT_SETS as $k => $set) { $v = (string)($in[$k] ?? ''); if ($v !== '' && in_array($v, $set, true)) $out[$k] = $v; }
+    $g = array_values(array_intersect(NC_GENDERS, array_map('strval', (array)($in['gender'] ?? []))));
+    if ($g) $out['gender'] = $g;
+    $o = nc_cut((string)($in['gender_other'] ?? ''), 40);
+    if ($o !== '') $out['gender_other'] = $o;
+    return $out;
+}
+function nc_nsfw_facts(array $in): array {
+    $out = [];
+    foreach (NC_NSFW_SETS as $k => $set) { $v = (string)($in[$k] ?? ''); if ($v !== '' && in_array($v, $set, true)) $out[$k] = $v; }
+    if (!empty($in['can_host'])) $out['can_host'] = true;
+    $kinks = [];
+    foreach ((array)($in['kinks'] ?? []) as $k => $v) {
+        if (count($kinks) >= 200 || !preg_match('/^[a-z0-9_]{2,32}$/', (string)$k) || !is_array($v)) continue;
+        $r = isset($v[0]) && is_numeric($v[0]) ? max(-1, min(2, (int)$v[0])) : null;
+        $g = isset($v[1]) && is_numeric($v[1]) ? max(-1, min(2, (int)$v[1])) : null;
+        if ($r !== null || $g !== null) $kinks[(string)$k] = [$r, $g];
+    }
+    if ($kinks) $out['kinks'] = $kinks;
+    return $out;
+}
 function nc_profile(array $who, string $id): array {
     $id = strtolower($id);
     if (!nx_uid_ok($id)) throw new NcError('Ungültige VRChat-User-ID.');
@@ -62,10 +98,13 @@ function nc_profile(array $who, string $id): array {
     $own = $id === $who['vrc_id'];
     $out = ['vrc_id' => $id, 'name' => $acc['display_name'], 'bio' => $p['bio'] ?? '', 'pronouns' => $p['pronouns'] ?? '', 'languages' => $p['languages'] ?? '',
         'interests' => $p['interests'] ?? '', 'links' => json_decode($p['links'] ?? '[]', true) ?: [], 'theme' => $p['theme'] ?? '', 'avatar' => $p['avatar'] ?? '', 'banner' => $p['banner'] ?? '',
-        'verified18' => (int)$acc['age_until'] > time(), 'joined' => (int)$acc['created'], 'own' => $own];
+        'verified18' => (int)$acc['age_until'] > time(), 'joined' => (int)$acc['created'], 'own' => $own,
+        'facts' => json_decode($p['facts'] ?? '{}', true) ?: (object)[]];
     // 18+-Profilteil nur für freigegebene Betrachter (und nur, wenn die Person selbst NSFW an hat)
-    if ($who['_nsfw'] && !empty($acc['nsfw_on']) && (int)$acc['age_until'] > time()) $out['nsfw_bio'] = $p['nsfw_bio'] ?? '';
-    elseif ($own) $out['nsfw_bio'] = $p['nsfw_bio'] ?? '';
+    if (($who['_nsfw'] && !empty($acc['nsfw_on']) && (int)$acc['age_until'] > time()) || $own) {
+        $out['nsfw_bio'] = $p['nsfw_bio'] ?? '';
+        $out['nsfw_facts'] = json_decode($p['nsfw_facts'] ?? '{}', true) ?: (object)[];
+    }
     $c = nc_db()->prepare("SELECT COUNT(*) FROM comm_posts WHERE author = ? AND status = 'visible' AND parent = 0 AND rating = 'sfw'");
     $c->execute([$id]);
     $out['posts'] = (int)$c->fetchColumn();
@@ -78,11 +117,14 @@ function nc_profile_save(array $who, array $in): array {
         json_encode(array_slice($links, 0, 6)), preg_replace('/[^a-z0-9\-]/', '', (string)($in['theme'] ?? '')), (string)($in['avatar'] ?? ''), (string)($in['banner'] ?? ''),
         $who['_nsfw'] ? nc_cut((string)($in['nsfw_bio'] ?? ''), 1000) : null, time()];
     $db = nc_db();
-    $ex = $db->prepare('SELECT nsfw_bio FROM comm_profiles WHERE vrc_id = ?'); $ex->execute([$who['vrc_id']]);
+    $ex = $db->prepare('SELECT nsfw_bio, facts, nsfw_facts FROM comm_profiles WHERE vrc_id = ?'); $ex->execute([$who['vrc_id']]);
     $old = $ex->fetch(PDO::FETCH_ASSOC);
     if ($vals[8] === null) $vals[8] = $old ? (string)$old['nsfw_bio'] : '';   // ohne Freigabe bleibt der 18+-Teil unverändert
-    if ($old) $db->prepare('UPDATE comm_profiles SET bio = ?, pronouns = ?, languages = ?, interests = ?, links = ?, theme = ?, avatar = ?, banner = ?, nsfw_bio = ?, updated = ? WHERE vrc_id = ?')->execute(array_merge($vals, [$who['vrc_id']]));
-    else $db->prepare('INSERT INTO comm_profiles (bio, pronouns, languages, interests, links, theme, avatar, banner, nsfw_bio, updated, vrc_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')->execute(array_merge($vals, [$who['vrc_id']]));
+    // Steckbrief: nur wenn mitgeschickt (ältere Apps kennen ihn nicht); 18+-Teil nur mit Freigabe
+    $vals[] = array_key_exists('facts', $in) ? json_encode(nc_facts((array)$in['facts']) ?: (object)[]) : ($old ? (string)$old['facts'] : '{}');
+    $vals[] = array_key_exists('nsfw_facts', $in) && $who['_nsfw'] ? json_encode(nc_nsfw_facts((array)$in['nsfw_facts']) ?: (object)[]) : ($old ? (string)$old['nsfw_facts'] : '{}');
+    if ($old) $db->prepare('UPDATE comm_profiles SET bio = ?, pronouns = ?, languages = ?, interests = ?, links = ?, theme = ?, avatar = ?, banner = ?, nsfw_bio = ?, updated = ?, facts = ?, nsfw_facts = ? WHERE vrc_id = ?')->execute(array_merge($vals, [$who['vrc_id']]));
+    else $db->prepare('INSERT INTO comm_profiles (bio, pronouns, languages, interests, links, theme, avatar, banner, nsfw_bio, updated, facts, nsfw_facts, vrc_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')->execute(array_merge($vals, [$who['vrc_id']]));
     return nc_profile($who, $who['vrc_id']);
 }
 

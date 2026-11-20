@@ -41,6 +41,17 @@ const ok = (c, m) => { if (!c) { console.log('✖', m); process.exitCode = 1; } 
   r = await call('nexuscomm.php', 'react', Object.assign({ id: p1, emoji: '🦊' }, b)); ok(r[1].post.reactions['🦊'] === 1, 'Reaktion');
   r = await call('nexuscomm.php', 'profile_save', Object.assign({ bio: 'Hi', pronouns: 'sie/ihr', nsfw_bio: 'geheim', links: ['https://x.example', 'javascript:alert(1)'] }, a)); ok(r[1].profile.links.length === 1, 'Profil: nur https-Links');
   r = await call('nexuscomm.php', 'profile', Object.assign({ id: A }, b)); ok(r[1].profile.bio === 'Hi' && r[1].profile.nsfw_bio === undefined, 'B sieht 18+-Profilteil nicht');
+  // Steckbrief (für alle) + 18+-Steckbrief (nur Freigabe): nur feste Werte, Kinks begrenzt
+  r = await call('nexuscomm.php', 'profile_save', Object.assign({ bio: 'Hi', facts: { gender: ['female', 'trans_female', 'quatsch'], orientation: 'pan', relationship: 'taken', looking: 'evil' },
+    nsfw_facts: { position: 'bottom', behavior: 'versatile', can_host: true, kinks: { kissing: [2, 1], 'bad key!': [2, 2], bondage: [9, -5], empty: [null, null] } } }, a));
+  const pf = r[1].profile;
+  ok(pf.facts.gender.join() === 'female,trans_female' && pf.facts.orientation === 'pan' && !pf.facts.looking, 'Steckbrief: nur erlaubte Werte');
+  ok(pf.nsfw_facts.position === 'bottom' && pf.nsfw_facts.can_host === true && pf.nsfw_facts.kinks.kissing.join() === '2,1' && pf.nsfw_facts.kinks.bondage.join() === '2,-1' && !pf.nsfw_facts.kinks['bad key!'] && !pf.nsfw_facts.kinks.empty, '18+-Steckbrief: Werte begrenzt, falsche Schlüssel verworfen');
+  r = await call('nexuscomm.php', 'profile', Object.assign({ id: A }, b)); ok(r[1].profile.facts.orientation === 'pan' && r[1].profile.nsfw_facts === undefined, 'B sieht Steckbrief, aber keinen 18+-Steckbrief');
+  r = await call('nexuscomm.php', 'profile_save', Object.assign({ bio: 'B', nsfw_facts: { position: 'top' } }, b));
+  r = await call('nexuscomm.php', 'profile', Object.assign({ id: B }, b)); ok(!(r[1].profile.nsfw_facts || {}).position, 'B ohne Freigabe kann keinen 18+-Steckbrief speichern');
+  r = await call('nexuscomm.php', 'profile_save', Object.assign({ bio: 'Hi' }, a));
+  r = await call('nexuscomm.php', 'profile', Object.assign({ id: A }, a)); ok(r[1].profile.nsfw_facts.position === 'bottom' && r[1].profile.facts.orientation === 'pan', 'ältere App ohne Steckbrief überschreibt nichts');
   // Stummschalten / Sperren
   r = await call('nexuscomm.php', 'mod', Object.assign({ do: 'mute', vrc_id: B, hours: 2, note: 'Spam' }, a));
   r = await call('nexuscomm.php', 'post', Object.assign({ text: 'nochmal' }, b)); ok(r[0] === 400 && /stumm/.test(r[1].error), 'B stummgeschaltet');

@@ -258,6 +258,14 @@ function vrc_migrate(PDO $db): void {
         PRAGMA user_version = 12;
     ");
     }
+    if ((int)$db->query('PRAGMA user_version')->fetchColumn() < 13) {
+        // Community-Profil (3.1.1): Steckbrief für alle (Geschlecht, Orientierung, Beziehung) + 18+-Steckbrief (nur Verified 18+ mit NSFW an)
+        $db->exec("
+        ALTER TABLE comm_profiles ADD COLUMN facts TEXT NOT NULL DEFAULT '{}';
+        ALTER TABLE comm_profiles ADD COLUMN nsfw_facts TEXT NOT NULL DEFAULT '{}';
+        PRAGMA user_version = 13;
+    ");
+    }
 }
 
 // ---------- Verschlüsselung der Sitzungs-Cookies ----------
