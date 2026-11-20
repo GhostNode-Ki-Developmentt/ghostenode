@@ -212,6 +212,18 @@ function vrc_migrate(PDO $db): void {
         PRAGMA user_version = 9;
     ");
     }
+    if ((int)$db->query('PRAGMA user_version')->fetchColumn() < 10) {
+        // Nexus-Konto (nexusacct.php): Konten an der VRChat-User-ID, Geräte-Tokens (nur Hash), Bio-Codes, Altersfreigabe
+        $db->exec("
+        CREATE TABLE IF NOT EXISTS nexus_accounts (vrc_id TEXT PRIMARY KEY, display_name TEXT NOT NULL DEFAULT '', created INTEGER NOT NULL, last_seen INTEGER NOT NULL DEFAULT 0,
+                                age_status TEXT NOT NULL DEFAULT '', age_checked INTEGER NOT NULL DEFAULT 0, age_until INTEGER NOT NULL DEFAULT 0,
+                                nsfw_on INTEGER NOT NULL DEFAULT 0, banned INTEGER NOT NULL DEFAULT 0);
+        CREATE TABLE IF NOT EXISTS nexus_devices (token_hash TEXT PRIMARY KEY, vrc_id TEXT NOT NULL, name TEXT NOT NULL DEFAULT '', created INTEGER NOT NULL, last_seen INTEGER NOT NULL DEFAULT 0);
+        CREATE INDEX IF NOT EXISTS idx_nexus_dev_user ON nexus_devices(vrc_id);
+        CREATE TABLE IF NOT EXISTS nexus_codes (vrc_id TEXT PRIMARY KEY, code TEXT NOT NULL, expires INTEGER NOT NULL);
+        PRAGMA user_version = 10;
+    ");
+    }
 }
 
 // ---------- Verschlüsselung der Sitzungs-Cookies ----------

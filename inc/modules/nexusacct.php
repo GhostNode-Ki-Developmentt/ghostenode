@@ -1,0 +1,168 @@
+<?php
+/**
+ * Nexus-Konto & Altersfreigabe („Verified 18+“) – zentrales Konto der VRC-Nexus-App auf GhostNode.
+ *
+ *  - Konto = VRChat-User-ID. Nachweis über einen Bio-Code: die Webseite liest die VRChat-Bio über ihr Dienst-Konto.
+ *    Kein Passwort; je Gerät ein Konto-Token (nur als SHA-256 gespeichert, widerrufbar).
+ *  - Altersfreigabe NUR serverseitig: `ageVerificationStatus === "18+"` (sichtbar) über das Dienst-Konto.
+ *    Gültig 7 Tage, danach automatisch neu geprüft. Fehlt der Status → Rolle entzogen, NSFW aus.
+ *  - NSFW ist standardmäßig aus und nur mit gültiger Freigabe einschaltbar. NXK1 schaltet NSFW NICHT frei
+ *    (NXK1 bleibt für Supporter, Moderatoren und Admin).
+ * Tabellen im Modul „vrchat“ (Migration 10 in inc/modules/vrchat.php).
+ */
+require_once __DIR__ . '/vrchat.php';
+require_once __DIR__ . '/nexuswarn.php';
+
+const NX_AGE_VALID = 7 * 86400;      // Entscheidung der Besitzerin: alle 7 Tage neu prüfen
+const NX_CODE_TTL = 600;             // Bio-Code 10 Minuten gültig
+const NX_RECHECK_MIN = 3600;         // manuelle Neuprüfung höchstens 1×/Stunde
+
+class NxError extends RuntimeException {}
+
+function nx_db(): PDO { return db_get('vrchat'); }
+function nx_now(): int { return time(); }
+function nx_uid_ok(string $id): bool { return (bool)preg_match(NW_UID, $id); }
+
+// ---------- Dienst-Konto (VRChat-Konto eines Dashboard-Benutzers) ----------
+function nx_service_uid(): int { return (int)setting('nexus_service_uid', '0'); }
+function nx_service(): array {
+    $uid = nx_service_uid();
+    $acc = $uid ? vrc_account($uid) : null;
+    if (!$acc || !$acc['cookie_jar']) throw new NxError('Die Webseite hat noch kein Dienst-Konto für die VRChat-Prüfung (Admin → Nexus-Konten).');
+    return $acc;
+}
+/** VRChat-Profil über das Dienst-Konto (nur die nötigen Felder) */
+function nx_vrc_user(string $vrc_id): array {
+    $acc = nx_service();
+    try { $u = vrc_call($acc, 'GET', '/users/' . rawurlencode($vrc_id)); }
+    catch (VrcAuthError $e) { throw new NxError('Die VRChat-Sitzung des Dienst-Kontos ist abgelaufen – bitte im Dashboard neu verbinden.'); }
+    catch (Throwable $e) { throw new NxError('VRChat-Profil nicht abrufbar: ' . $e->getMessage()); }
+    return ['id' => (string)($u['id'] ?? ''), 'name' => (string)($u['displayName'] ?? ''), 'bio' => (string)($u['bio'] ?? ''),
+            'age' => (string)($u['ageVerificationStatus'] ?? ''), 'age_verified' => !empty($u['ageVerified'])];
+}
+
+// ---------- Konten ----------
+function nx_account(string $vrc_id): ?array {
+    $st = nx_db()->prepare('SELECT * FROM nexus_accounts WHERE vrc_id = ?');
+    $st->execute([$vrc_id]);
+    return $st->fetch(PDO::FETCH_ASSOC) ?: null;
+}
+function nx_code(string $vrc_id): array {
+    if (!nx_uid_ok($vrc_id)) throw new NxError('Ungültige VRChat-User-ID.');
+    $code = 'NX-' . strtoupper(substr(bin2hex(random_bytes(4)), 0, 6));
+    $db = nx_db();
+    $db->prepare('DELETE FROM nexus_codes WHERE vrc_id = ? OR expires < ?')->execute([$vrc_id, nx_now()]);
+    $db->prepare('INSERT INTO nexus_codes (vrc_id, code, expires) VALUES (?, ?, ?)')->execute([$vrc_id, $code, nx_now() + NX_CODE_TTL]);
+    return ['code' => $code, 'expires' => nx_now() + NX_CODE_TTL];
+}
+/** Bio prüfen → Konto anlegen/holen → Geräte-Token */
+function nx_verify(string $vrc_id, string $device): array {
+    if (!nx_uid_ok($vrc_id)) throw new NxError('Ungültige VRChat-User-ID.');
+    $st = nx_db()->prepare('SELECT code FROM nexus_codes WHERE vrc_id = ? AND expires >= ?');
+    $st->execute([$vrc_id, nx_now()]);
+    $code = (string)$st->fetchColumn();
+    if ($code === '') throw new NxError('Kein gültiger Code – bitte neu anfordern.');
+    $u = nx_vrc_user($vrc_id);
+    if (strtolower($u['id']) !== $vrc_id) throw new NxError('VRChat-Profil passt nicht.');
+    if (stripos($u['bio'], $code) === false) throw new NxError('Der Code steht (noch) nicht in deiner VRChat-Bio. VRChat braucht manchmal ein paar Sekunden – bitte gleich noch einmal.');
+    $db = nx_db();
+    $db->prepare('DELETE FROM nexus_codes WHERE vrc_id = ?')->execute([$vrc_id]);
+    if (!nx_account($vrc_id)) {
+        $db->prepare('INSERT INTO nexus_accounts (vrc_id, display_name, created, last_seen, age_status, age_checked, age_until, nsfw_on, banned) VALUES (?, ?, ?, ?, \'\', 0, 0, 0, 0)')
+            ->execute([$vrc_id, mb_substr($u['name'], 0, 60), nx_now(), nx_now()]);
+        nw_log($vrc_id, 'Nexus-Konto angelegt', $vrc_id);
+    }
+    $a = nx_account($vrc_id);
+    if (!empty($a['banned'])) throw new NxError('Dieses Konto ist gesperrt.');
+    nx_apply_age($vrc_id, $u);
+    $token = bin2hex(random_bytes(32));
+    $db->prepare('INSERT INTO nexus_devices (token_hash, vrc_id, name, created, last_seen) VALUES (?, ?, ?, ?, ?)')
+        ->execute([hash('sha256', $token), $vrc_id, mb_substr(trim($device) ?: 'Gerät', 0, 60), nx_now(), nx_now()]);
+    return ['token' => $token, 'account' => nx_public(nx_account($vrc_id))];
+}
+/** Konto-Token → Konto (sonst Fehler) */
+function nx_auth(string $token): array {
+    if (!preg_match('/^[0-9a-f]{64}$/', $token)) throw new NxError('Nicht angemeldet.');
+    $h = hash('sha256', $token);
+    $st = nx_db()->prepare('SELECT vrc_id FROM nexus_devices WHERE token_hash = ?');
+    $st->execute([$h]);
+    $id = (string)$st->fetchColumn();
+    if ($id === '') throw new NxError('Nicht angemeldet.');
+    $a = nx_account($id);
+    if (!$a) throw new NxError('Nicht angemeldet.');
+    if (!empty($a['banned'])) throw new NxError('Dieses Konto ist gesperrt.');
+    nx_db()->prepare('UPDATE nexus_devices SET last_seen = ? WHERE token_hash = ?')->execute([nx_now(), $h]);
+    nx_db()->prepare('UPDATE nexus_accounts SET last_seen = ? WHERE vrc_id = ?')->execute([nx_now(), $id]);
+    $a['_token_hash'] = $h;
+    return $a;
+}
+
+// ---------- Altersfreigabe ----------
+function nx_apply_age(string $vrc_id, array $u): bool {
+    $ok = $u['age'] === '18+';
+    $db = nx_db();
+    if ($ok) $db->prepare('UPDATE nexus_accounts SET age_status = ?, age_checked = ?, age_until = ?, display_name = ? WHERE vrc_id = ?')->execute(['18+', nx_now(), nx_now() + NX_AGE_VALID, mb_substr($u['name'], 0, 60), $vrc_id]);
+    else {
+        $prev = nx_account($vrc_id);
+        // Status fehlt/unsichtbar → Rolle entziehen UND NSFW ausschalten (muss nach erneuter Freigabe bewusst wieder an)
+        $db->prepare('UPDATE nexus_accounts SET age_status = ?, age_checked = ?, age_until = 0, nsfw_on = 0 WHERE vrc_id = ?')->execute([$u['age'] === '' ? 'hidden' : mb_substr($u['age'], 0, 20), nx_now(), $vrc_id]);
+        if ($prev && (int)$prev['age_until'] > 0) nw_log($vrc_id, 'Verified 18+ entzogen', $vrc_id, 'Status: ' . ($u['age'] ?: 'nicht sichtbar'));
+    }
+    return $ok;
+}
+/** gültige Freigabe? Abgelaufen → neu prüfen (bei Fehler: keine Freigabe) */
+function nx_verified18(array &$a): bool {
+    if ((int)$a['age_until'] > nx_now()) return true;
+    if ((int)$a['age_checked'] > nx_now() - 300) return false;   // nicht bei jeder Anfrage erneut fragen
+    try { nx_apply_age($a['vrc_id'], nx_vrc_user($a['vrc_id'])); } catch (NxError $e) { return false; }
+    $a = nx_account($a['vrc_id']) ?: $a;
+    return (int)$a['age_until'] > nx_now();
+}
+/** Darf dieses Konto NSFW-Inhalte bekommen? – von JEDEM NSFW-Endpunkt aufzurufen */
+function nx_nsfw_allowed(array &$a): bool {
+    if (empty($a['nsfw_on'])) return false;
+    if (!nx_verified18($a)) return false;
+    return !empty($a['nsfw_on']);
+}
+function nx_require_nsfw(array &$a): void {
+    if (!nx_nsfw_allowed($a)) throw new NxError('NSFW ist für dieses Konto nicht freigegeben (Verified 18+ und NSFW-Schalter nötig).');
+}
+function nx_set_nsfw(array &$a, bool $on): array {
+    if ($on) {
+        if (!nx_verified18($a)) throw new NxError('NSFW lässt sich nur mit „Verified 18+“ einschalten: In VRChat muss die Altersverifizierung (18+) abgeschlossen und im Profil sichtbar sein.');
+        nx_db()->prepare('UPDATE nexus_accounts SET nsfw_on = 1 WHERE vrc_id = ?')->execute([$a['vrc_id']]);
+    } else nx_db()->prepare('UPDATE nexus_accounts SET nsfw_on = 0 WHERE vrc_id = ?')->execute([$a['vrc_id']]);
+    nw_log($a['vrc_id'], $on ? 'NSFW eingeschaltet' : 'NSFW ausgeschaltet', $a['vrc_id']);
+    $a = nx_account($a['vrc_id']);
+    return nx_public($a);
+}
+function nx_recheck(array &$a): array {
+    if ((int)$a['age_checked'] > nx_now() - NX_RECHECK_MIN && (int)$a['age_until'] > nx_now()) return nx_public($a);
+    nx_apply_age($a['vrc_id'], nx_vrc_user($a['vrc_id']));
+    $a = nx_account($a['vrc_id']);
+    return nx_public($a);
+}
+/** Kontoinfo für die App (ohne Interna) */
+function nx_public(array $a): array {
+    $v = (int)$a['age_until'] > nx_now();
+    return ['vrc_id' => $a['vrc_id'], 'name' => $a['display_name'], 'created' => (int)$a['created'],
+        'verified18' => $v, 'age_status' => $a['age_status'], 'age_checked' => (int)$a['age_checked'], 'age_until' => (int)$a['age_until'],
+        'nsfw_on' => $v && !empty($a['nsfw_on']), 'roles' => array_values(array_filter([$v ? 'Verified 18+' : '', nw_is_owner($a['vrc_id']) ? 'Admin' : '']))];
+}
+function nx_devices(array $a): array {
+    $st = nx_db()->prepare('SELECT substr(token_hash, 1, 12) AS id, name, created, last_seen FROM nexus_devices WHERE vrc_id = ? ORDER BY last_seen DESC');
+    $st->execute([$a['vrc_id']]);
+    return $st->fetchAll(PDO::FETCH_ASSOC);
+}
+function nx_logout(array $a, string $device = ''): void {
+    if ($device !== '') nx_db()->prepare('DELETE FROM nexus_devices WHERE vrc_id = ? AND substr(token_hash, 1, 12) = ?')->execute([$a['vrc_id'], $device]);
+    else nx_db()->prepare('DELETE FROM nexus_devices WHERE token_hash = ?')->execute([$a['_token_hash']]);
+}
+/** Hintergrund (cron): ablaufende Freigaben verteilt neu prüfen – höchstens $max Abfragen je Lauf */
+function nx_cron(int $max = 10): int {
+    $st = nx_db()->prepare('SELECT * FROM nexus_accounts WHERE age_until > 0 AND age_until < ? AND banned = 0 ORDER BY age_until LIMIT ' . max(1, min(50, $max)));
+    $st->execute([nx_now() + 3600]);
+    $n = 0;
+    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $a) { try { nx_apply_age($a['vrc_id'], nx_vrc_user($a['vrc_id'])); $n++; } catch (Throwable $e) { break; } }
+    return $n;
+}
