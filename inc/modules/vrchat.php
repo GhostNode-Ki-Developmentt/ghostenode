@@ -245,6 +245,19 @@ function vrc_migrate(PDO $db): void {
         PRAGMA user_version = 11;
     ");
     }
+    if ((int)$db->query('PRAGMA user_version')->fetchColumn() < 12) {
+        // Nexus-Privat-Chat (nexuschat.php): nur öffentliche Geräte-Schlüssel, Einmal-Pre-Keys und Chiffretexte
+        $db->exec("
+        CREATE TABLE IF NOT EXISTS chat_devices (device_id TEXT PRIMARY KEY, vrc_id TEXT NOT NULL, ik_dh TEXT NOT NULL, ik_sig TEXT NOT NULL, spk_id INTEGER NOT NULL DEFAULT 0,
+                                spk_pub TEXT NOT NULL, spk_sig TEXT NOT NULL, created INTEGER NOT NULL, last_seen INTEGER NOT NULL DEFAULT 0);
+        CREATE INDEX IF NOT EXISTS idx_chat_dev_user ON chat_devices(vrc_id);
+        CREATE TABLE IF NOT EXISTS chat_opks (device_id TEXT NOT NULL, opk_id INTEGER NOT NULL, pub TEXT NOT NULL, PRIMARY KEY (device_id, opk_id));
+        CREATE TABLE IF NOT EXISTS chat_inbox (id INTEGER PRIMARY KEY AUTOINCREMENT, to_device TEXT NOT NULL, to_uid TEXT NOT NULL, from_uid TEXT NOT NULL, from_device TEXT NOT NULL,
+                                body TEXT NOT NULL, created INTEGER NOT NULL);
+        CREATE INDEX IF NOT EXISTS idx_chat_inbox ON chat_inbox(to_device, id);
+        PRAGMA user_version = 12;
+    ");
+    }
 }
 
 // ---------- Verschlüsselung der Sitzungs-Cookies ----------
