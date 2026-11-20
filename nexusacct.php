@@ -4,6 +4,7 @@
  * <title>Nexus-Konten</title>
  *
  * App (JSON, ohne Sitzung/Cookies):
+ *   POST nexusacct.php?a=register {"vrc_id","name","device"}    → {"token","account"}  (seit 3.0.2: direkt mit der VRChat-ID, ohne Code)
  *   POST nexusacct.php?a=code     {"vrc_id"}                    → {"code":"NX-…","expires":…}   (Code in die VRChat-Bio)
  *   POST nexusacct.php?a=verify   {"vrc_id","device"}           → {"token":"…","account":{…}}  (Bio wird über das Dienst-Konto geprüft)
  *   POST nexusacct.php?a=me       {"token"}                     → {"account":{…},"devices":[…]}
@@ -25,10 +26,11 @@ if (isset($_GET['a'])) {
     if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') $out(['error' => 'Nur POST.'], 405);
     $a = (string)$_GET['a'];
     // Bremse pro IP; Code/Prüfen strenger (fragt VRChat ab)
-    if (nw_rate_over(client_ip(), 60) || (in_array($a, ['code', 'verify'], true) && nw_rate_over('v|' . client_ip(), 10))) $out(['error' => 'Zu viele Anfragen – kurz warten.'], 429);
+    if (nw_rate_over(client_ip(), 60) || (in_array($a, ['code', 'verify', 'register'], true) && nw_rate_over('v|' . client_ip(), 10))) $out(['error' => 'Zu viele Anfragen – kurz warten.'], 429);
     $in = json_decode((string)file_get_contents('php://input', false, null, 0, 8000), true);
     if (!is_array($in)) $out(['error' => 'JSON erwartet.'], 400);
     try {
+        if ($a === 'register') $out(nx_register(strtolower(trim((string)($in['vrc_id'] ?? ''))), (string)($in['name'] ?? ''), (string)($in['device'] ?? '')));   // seit 3.0.2: direkt, ohne Code
         if ($a === 'code') $out(nx_code(strtolower(trim((string)($in['vrc_id'] ?? '')))));
         if ($a === 'verify') $out(nx_verify(strtolower(trim((string)($in['vrc_id'] ?? ''))), (string)($in['device'] ?? '')));
         $acc = nx_auth((string)($in['token'] ?? ''));

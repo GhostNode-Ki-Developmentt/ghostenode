@@ -4,7 +4,7 @@ const H = 'http://127.0.0.1:8902/';
 const j = (f, a, b) => fetch(H + f + '?a=' + a, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) });
 const call = async (f, a, b) => { const r = await j(f, a, b); const ct = r.headers.get('content-type') || ''; return [r.status, ct.includes('json') ? await r.json() : (await r.arrayBuffer()).byteLength + ' bytes ' + ct]; };
 const mock = b => fetch('http://127.0.0.1:8792/api/1/__mock/set', { method: 'POST', body: JSON.stringify(b) });
-const login = async (id, age) => { const c = (await call('nexusacct.php', 'code', { vrc_id: id }))[1].code; await mock({ id, bio: c }); const t = (await call('nexusacct.php', 'verify', { vrc_id: id, device: 't' }))[1].token; await call('nexusacct.php', 'age', { token: t, status: age }); return t; };   // 18+ meldet seit 3.0.1 die App (VRChat /ageVerification/status)
+const login = async (id, age) => { const t = (await call('nexusacct.php', 'register', { vrc_id: id, name: id.slice(-4), device: 't' }))[1].token; await call('nexusacct.php', 'age', { token: t, status: age }); return t; };   // seit 3.0.2: direkt mit der VRChat-ID; 18+ meldet die App
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64').toString('base64');
 const ok = (c, m) => { if (!c) { console.log('✖', m); process.exitCode = 1; } else console.log('✔', m); };
 (async () => {

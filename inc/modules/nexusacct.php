@@ -7,8 +7,8 @@
  *  - Altersfreigabe (seit 3.0.1, Entscheidung der Besitzerin „nur App prüft direkt“): die App fragt mit der EIGENEN
  *    VRChat-Sitzung GET /ageVerification/status ab und meldet das Ergebnis (a=age). Der Server vertraut dieser Meldung
  *    bewusst. Gültig 7 Tage; die App prüft beim Start, alle 6 h und 1 Tag vor Ablauf neu. Kein „18+“ → Rolle entzogen, NSFW aus.
- *  - Bio-Code beim Verbinden liest die Webseite über ein VRChat-Konto im Dashboard: das gewählte Dienst-Konto oder –
- *    wenn keins gewählt ist – automatisch das erste verbundene VRChat-Konto eines Administrators.
+ *  - Verbinden (seit 3.0.2): direkt mit der VRChat-ID aus der App (a=register), ohne Code und ohne Prüfung (Entscheidung der Besitzerin).
+ *    Der alte Bio-Code-Weg (a=code/verify) bleibt nur für ältere App-Versionen.
  *  - NSFW ist standardmäßig aus und nur mit gültiger Freigabe einschaltbar. NXK1 schaltet NSFW NICHT frei
  *    (NXK1 bleibt für Supporter, Moderatoren und Admin).
  * Tabellen im Modul „vrchat“ (Migration 10 in inc/modules/vrchat.php).
@@ -90,6 +90,26 @@ function nx_verify(string $vrc_id, string $device): array {
     $db->prepare('INSERT INTO nexus_devices (token_hash, vrc_id, name, created, last_seen) VALUES (?, ?, ?, ?, ?)')
         ->execute([hash('sha256', $token), $vrc_id, mb_substr(trim($device) ?: 'Gerät', 0, 60), nx_now(), nx_now()]);
     return ['token' => $token, 'account' => nx_public(nx_account($vrc_id))];
+}
+/**
+ * Direkt verbinden (seit 3.0.2, Entscheidung der Besitzerin: „direkt über Nexus, VRChat-ID ohne Code, ganz ohne Prüfung“):
+ * die App meldet die VRChat-ID des angemeldeten Kontos, das Gerät wird sofort angenommen. Bewusst ohne Nachweis –
+ * eine veränderte App könnte eine fremde ID melden (akzeptiertes Risiko). Gesperrte Konten bleiben gesperrt.
+ */
+function nx_register(string $vrc_id, string $name, string $device): array {
+    if (!nx_uid_ok($vrc_id)) throw new NxError('Ungültige VRChat-User-ID.');
+    $db = nx_db();
+    if (!nx_account($vrc_id)) {
+        $db->prepare('INSERT INTO nexus_accounts (vrc_id, display_name, created, last_seen, age_status, age_checked, age_until, nsfw_on, banned) VALUES (?, ?, ?, ?, \'\', 0, 0, 0, 0)')
+            ->execute([$vrc_id, mb_substr(trim($name), 0, 60), nx_now(), nx_now()]);
+        nw_log($vrc_id, 'Nexus-Konto angelegt', $vrc_id, 'direkt');
+    } elseif (trim($name) !== '') $db->prepare('UPDATE nexus_accounts SET display_name = ? WHERE vrc_id = ?')->execute([mb_substr(trim($name), 0, 60), $vrc_id]);
+    $a = nx_account($vrc_id);
+    if (!empty($a['banned'])) throw new NxError('Dieses Konto ist gesperrt.');
+    $token = bin2hex(random_bytes(32));
+    $db->prepare('INSERT INTO nexus_devices (token_hash, vrc_id, name, created, last_seen) VALUES (?, ?, ?, ?, ?)')
+        ->execute([hash('sha256', $token), $vrc_id, mb_substr(trim($device) ?: 'Gerät', 0, 60), nx_now(), nx_now()]);
+    return ['token' => $token, 'account' => nx_public($a)];
 }
 /** Konto-Token → Konto (sonst Fehler) */
 function nx_auth(string $token): array {
