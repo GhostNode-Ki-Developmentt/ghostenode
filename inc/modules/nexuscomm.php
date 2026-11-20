@@ -63,6 +63,7 @@ const NC_NSFW_SETS = [
     'behavior' => ['', 'dominant', 'submissive', 'switch', 'versatile'],
     'open_contact' => ['', 'yes', 'no', 'ask'],
     'safer' => ['', 'always', 'sometimes', 'never', 'talk'],
+    'visibility' => ['', 'hidden'],        // Sichtbarkeit: '' = alle Verified 18+ mit NSFW an, 'hidden' = nur ich
 ];
 function nc_facts(array $in): array {
     $out = [];
@@ -101,9 +102,10 @@ function nc_profile(array $who, string $id): array {
         'verified18' => (int)$acc['age_until'] > time(), 'joined' => (int)$acc['created'], 'own' => $own,
         'facts' => json_decode($p['facts'] ?? '{}', true) ?: (object)[]];
     // 18+-Profilteil nur für freigegebene Betrachter (und nur, wenn die Person selbst NSFW an hat)
-    if (($who['_nsfw'] && !empty($acc['nsfw_on']) && (int)$acc['age_until'] > time()) || $own) {
+    $nf = json_decode($p['nsfw_facts'] ?? '{}', true) ?: [];
+    if ($own || ($who['_nsfw'] && !empty($acc['nsfw_on']) && (int)$acc['age_until'] > time() && ($nf['visibility'] ?? '') !== 'hidden')) {
         $out['nsfw_bio'] = $p['nsfw_bio'] ?? '';
-        $out['nsfw_facts'] = json_decode($p['nsfw_facts'] ?? '{}', true) ?: (object)[];
+        $out['nsfw_facts'] = $nf ?: (object)[];
     }
     $c = nc_db()->prepare("SELECT COUNT(*) FROM comm_posts WHERE author = ? AND status = 'visible' AND parent = 0 AND rating = 'sfw'");
     $c->execute([$id]);

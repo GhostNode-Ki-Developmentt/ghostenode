@@ -52,6 +52,12 @@ const ok = (c, m) => { if (!c) { console.log('✖', m); process.exitCode = 1; } 
   r = await call('nexuscomm.php', 'profile', Object.assign({ id: B }, b)); ok(!(r[1].profile.nsfw_facts || {}).position, 'B ohne Freigabe kann keinen 18+-Steckbrief speichern');
   r = await call('nexuscomm.php', 'profile_save', Object.assign({ bio: 'Hi' }, a));
   r = await call('nexuscomm.php', 'profile', Object.assign({ id: A }, a)); ok(r[1].profile.nsfw_facts.position === 'bottom' && r[1].profile.facts.orientation === 'pan', 'ältere App ohne Steckbrief überschreibt nichts');
+  // Sichtbarkeit „nur ich“: auch freigegebene Betrachter sehen den 18+-Teil nicht (C = Verified 18+ mit NSFW)
+  const tc = await login('usr_00000000-0000-4000-8000-000000000012', '18+'); await call('nexusacct.php', 'nsfw', { token: tc, on: true });
+  r = await call('nexuscomm.php', 'profile', { token: tc, id: A }); ok(r[1].profile.nsfw_facts && r[1].profile.nsfw_facts.position === 'bottom', 'C (Verified 18+, NSFW an) sieht den 18+-Steckbrief');
+  r = await call('nexuscomm.php', 'profile_save', Object.assign({ bio: 'Hi', nsfw_facts: { position: 'bottom', visibility: 'hidden' } }, a));
+  r = await call('nexuscomm.php', 'profile', { token: tc, id: A }); ok(r[1].profile.nsfw_facts === undefined && r[1].profile.nsfw_bio === undefined, 'Sichtbarkeit „nur ich“: C sieht nichts mehr');
+  r = await call('nexuscomm.php', 'profile', Object.assign({ id: A }, a)); ok(r[1].profile.nsfw_facts.visibility === 'hidden', 'A selbst sieht ihn weiter');
   // Stummschalten / Sperren
   r = await call('nexuscomm.php', 'mod', Object.assign({ do: 'mute', vrc_id: B, hours: 2, note: 'Spam' }, a));
   r = await call('nexuscomm.php', 'post', Object.assign({ text: 'nochmal' }, b)); ok(r[0] === 400 && /stumm/.test(r[1].error), 'B stummgeschaltet');
@@ -59,4 +65,14 @@ const ok = (c, m) => { if (!c) { console.log('✖', m); process.exitCode = 1; } 
   r = await call('nexuscomm.php', 'post', Object.assign({ text: 'wieder da' }, b)); ok(r[0] === 200, 'Sperre aufgehoben');
   r = await call('nexuscomm.php', 'mod', Object.assign({ do: 'ban', vrc_id: A }, a)); ok(r[0] === 400, 'Selbst-Sperre verboten');
   r = await call('nexuscomm.php', 'mod_queue', a); ok(r[1].log.length >= 4, 'Protokoll: ' + r[1].log.length + ' Einträge');
+  // Toy-Relay (3.1.1): nur Verified 18+ mit NSFW an, nur der eigene Briefkasten
+  const box = id => require('crypto').createHash('sha256').update('vrcnx-toy|' + id.toLowerCase()).digest('hex');
+  const KEY = 'k'.repeat(40);
+  r = await call('toyrelay.php', 'poll', { to: box(A), key: KEY }); ok(r[0] === 401, 'Relay: ohne Konto abgelehnt');
+  r = await call('toyrelay.php', 'poll', { token: tb, to: box(B), key: KEY }); ok(r[0] === 403, 'Relay: ohne Verified 18+ abgelehnt');
+  r = await call('toyrelay.php', 'poll', { token: ta, to: box(B), key: KEY }); ok(r[0] === 403, 'Relay: fremder Briefkasten abgelehnt');
+  r = await call('toyrelay.php', 'poll', { token: ta, to: box(A), key: KEY }); ok(r[0] === 200 && Array.isArray(r[1].msgs), 'Relay: eigener Briefkasten');
+  r = await call('toyrelay.php', 'send', { token: tb, to: box(A), msg: 'x' }); ok(r[0] === 403, 'Relay: Senden ohne Freigabe abgelehnt');
+  r = await call('toyrelay.php', 'send', { token: ta, to: box(A), msg: 'hallo' }); ok(r[1].ok === true, 'Relay: Senden mit Freigabe');
+  r = await call('toyrelay.php', 'poll', { token: ta, to: box(A), key: KEY }); ok(r[1].msgs[0] === 'hallo', 'Relay: Nachricht kommt an');
 })();

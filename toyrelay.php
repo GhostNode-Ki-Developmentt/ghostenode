@@ -1,10 +1,12 @@
 <?php
 /**
  * Briefkasten für die Spielzeug-Fernsteuerung der VRC-Nexus-App (Nexus ↔ Nexus über die User-ID).
- * Die Webseite vermittelt nur – geprüft wird in der App (Freigabeliste + Freischalt-Schlüssel des Absenders).
+ * Seit 3.1.1 (NSFW-Overhaul, Spez. 7 „jede NSFW-Anfrage serverseitig prüfen“): Senden und Abholen nur mit Nexus-Konto-Token,
+ * das Konto muss Verified 18+ mit eingeschaltetem NSFW sein; abholen darf man nur den eigenen Briefkasten.
+ * Zusätzlich prüft die App wie bisher (Freigabeliste, Gegenseite Verified 18+).
  *
- *   POST toyrelay.php?a=send  {"to": "<64 hex>", "msg": "<Text, max. 6000 Zeichen>"}   → {"ok":true}
- *   POST toyrelay.php?a=poll  {"to": "<64 hex>", "key": "<Briefkasten-Schlüssel>"}      → {"msgs":[…]}
+ *   POST toyrelay.php?a=send  {"token", "to": "<64 hex>", "msg": "<Text, max. 6000 Zeichen>"}   → {"ok":true}
+ *   POST toyrelay.php?a=poll  {"token", "to": "<64 hex>", "key": "<Briefkasten-Schlüssel>"}      → {"msgs":[…]}
  *
  * „to“ ist ein Hash der VRChat-User-ID (die ID selbst steht nirgends). Lesen darf nur, wer beim ersten Abholen
  * den Briefkasten-Schlüssel gesetzt hat. Nachrichten verfallen nach 90 s. Keine Sitzung, keine Cookies, keine Datenbank.
@@ -59,6 +61,14 @@ $to = strtolower((string)($in['to'] ?? ''));
 if (!preg_match('/^[0-9a-f]{64}$/', $to)) tr_out(['error' => 'Empfänger ungültig.'], 400);
 $box = $dir . '/' . $to . '.php';
 $a = (string)($_GET['a'] ?? '');
+
+// Nexus-Konto: Verified 18+ und NSFW an – sonst keine Fernsteuerung über diese Webseite
+require_once __DIR__ . '/inc/core/pages.php';
+require_once __DIR__ . '/inc/modules/nexusacct.php';
+try { $acc = nx_auth((string)($in['token'] ?? '')); }
+catch (Throwable $e) { tr_out(['error' => 'Fernsteuerung nur mit Nexus-Konto (Verified 18+, NSFW an) – bitte VRC Nexus aktualisieren und das Konto verbinden.'], 401); }
+if (!nx_nsfw_allowed($acc)) tr_out(['error' => 'Fernsteuerung nur mit „Verified 18+“ und eingeschaltetem NSFW.'], 403);
+if ($a === 'poll' && !hash_equals(hash('sha256', 'vrcnx-toy|' . strtolower((string)$acc['vrc_id'])), $to)) tr_out(['error' => 'Nur der eigene Briefkasten.'], 403);
 
 // ab und zu aufräumen (verwaiste Briefkästen nach 30 Tagen, Bremsen nach 1 Tag)
 if (mt_rand(1, 200) === 1) foreach (glob($dir . '/*.php') ?: [] as $f) {
