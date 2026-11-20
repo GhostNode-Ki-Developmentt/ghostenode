@@ -137,7 +137,8 @@ function nx_set_nsfw(array &$a, bool $on): array {
     return nx_public($a);
 }
 function nx_recheck(array &$a): array {
-    if ((int)$a['age_checked'] > nx_now() - NX_RECHECK_MIN && (int)$a['age_until'] > nx_now()) return nx_public($a);
+    // schon frisch geprüft und noch über 1 Tag gültig → nicht erneut bei VRChat fragen
+    if ((int)$a['age_checked'] > nx_now() - NX_RECHECK_MIN && (int)$a['age_until'] > nx_now() + 86400) return nx_public($a);
     nx_apply_age($a['vrc_id'], nx_vrc_user($a['vrc_id']));
     $a = nx_account($a['vrc_id']);
     return nx_public($a);
@@ -158,10 +159,10 @@ function nx_logout(array $a, string $device = ''): void {
     if ($device !== '') nx_db()->prepare('DELETE FROM nexus_devices WHERE vrc_id = ? AND substr(token_hash, 1, 12) = ?')->execute([$a['vrc_id'], $device]);
     else nx_db()->prepare('DELETE FROM nexus_devices WHERE token_hash = ?')->execute([$a['_token_hash']]);
 }
-/** Hintergrund (cron): ablaufende Freigaben verteilt neu prüfen – höchstens $max Abfragen je Lauf */
+/** Hintergrund (cron): Freigaben 1 Tag VOR Ablauf neu prüfen (Vorwarnung statt plötzlichem Verlust) – höchstens $max Abfragen je Lauf */
 function nx_cron(int $max = 10): int {
     $st = nx_db()->prepare('SELECT * FROM nexus_accounts WHERE age_until > 0 AND age_until < ? AND banned = 0 ORDER BY age_until LIMIT ' . max(1, min(50, $max)));
-    $st->execute([nx_now() + 3600]);
+    $st->execute([nx_now() + 86400]);
     $n = 0;
     foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $a) { try { nx_apply_age($a['vrc_id'], nx_vrc_user($a['vrc_id'])); $n++; } catch (Throwable $e) { break; } }
     return $n;
