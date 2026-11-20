@@ -142,7 +142,8 @@ function nx_apply_age(string $vrc_id, array $u): bool {
     return $ok;
 }
 /** VRChat-Altersstatus aus der App (GET /ageVerification/status mit der eigenen Sitzung) → Freigabe */
-function nx_age_status_ok(string $s): bool { $s = strtolower(trim($s)); return $s === '18+' || $s === 'plus18' || $s === '18plus' || (bool)preg_match('/^verified[_ -]?18\+?$/', $s); }
+/** VRChat meldet bestätigte Konten als „18+“ (Abzeichen sichtbar) oder „verified“ (bestätigt, Abzeichen aus) – die Altersprüfung von VRChat gibt es nur ab 18 */
+function nx_age_status_ok(string $s): bool { $s = strtolower(trim($s)); return in_array($s, ['18+', 'plus18', '18plus', 'verified', 'true'], true) || (bool)preg_match('/^verified[_ -]?18\+?$/', $s); }
 function nx_report_age(array &$a, string $status): array {
     $u = ['age' => nx_age_status_ok($status) ? '18+' : mb_substr(trim($status), 0, 20), 'name' => $a['display_name']];
     nx_apply_age($a['vrc_id'], $u);

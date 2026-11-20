@@ -21,7 +21,8 @@ const NW_TRUSTED = [
 /** SHA-256 der VRChat-User-ID des Besitzers (wie in der App) */
 const NW_OWNER_HASH = '23e799d90cf62600203499e3f4d2712bb1a016e71dac64718b2c7d8267b2789e';
 const NW_REASONS = ['crasher' => ['💥', 'Crasher'], 'ripper' => ['🏴‍☠️', 'Ripper'], 'troll' => ['🧌', 'Troll'], 'other' => ['⚠', 'Sonstiges']];
-const NW_UID = '/^usr_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i';
+/** VRChat-User-ID: usr_<UUID> oder die kurze ID älterer Konten (10 Zeichen, z. B. 8JoV9XEdpo) */
+const NW_UID = '/^(usr_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-z]{10})$/i';
 
 class NwError extends RuntimeException {}
 
