@@ -33,7 +33,7 @@ try {
         case 'report': $out(nc_report($who, (int)($in['id'] ?? 0), (string)($in['reason'] ?? '')));
         case 'upload': $out(nc_upload($who, $in));
         case 'media': { [$mime, $bin] = nc_media_get($who, (string)($in['id'] ?? '')); header('Content-Type: ' . $mime); header('Content-Length: ' . strlen($bin)); echo $bin; exit; }
-        case 'profile': $out(['profile' => nc_profile($who, (string)($in['id'] ?? $who['vrc_id']))]);
+        case 'profile': $out(['profile' => nc_profile($who, trim((string)($in['id'] ?? '')) !== '' ? (string)$in['id'] : (string)$who['vrc_id'])]);
         case 'profile_save': $out(['profile' => nc_profile_save($who, $in), 'msg' => 'Profil gespeichert.']);
         case 'mod_queue': $out(nc_mod_queue($who));
         case 'mod': $out(nc_mod($who, (string)($in['do'] ?? ''), $in));
