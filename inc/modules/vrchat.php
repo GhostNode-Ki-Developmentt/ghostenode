@@ -197,6 +197,21 @@ function vrc_migrate(PDO $db): void {
         PRAGMA user_version = 8;
     ");
     }
+    if ((int)$db->query('PRAGMA user_version')->fetchColumn() < 9) {
+        // Nexus-Warnliste (nexuswarn.php): Meldungen, Einsprüche, Protokoll – gemeinsam für alle freigeschalteten Nexus-Nutzer
+        $db->exec("
+        CREATE TABLE IF NOT EXISTS warn_reports (id INTEGER PRIMARY KEY AUTOINCREMENT, target TEXT NOT NULL, target_name TEXT NOT NULL DEFAULT '', reporter TEXT NOT NULL,
+                                reporter_name TEXT NOT NULL DEFAULT '', reason TEXT NOT NULL, note TEXT NOT NULL DEFAULT '', evidence TEXT NOT NULL DEFAULT '',
+                                created INTEGER NOT NULL, updated INTEGER NOT NULL, expires INTEGER NOT NULL);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_warn_pair ON warn_reports(target, reporter);
+        CREATE INDEX IF NOT EXISTS idx_warn_exp ON warn_reports(expires);
+        CREATE TABLE IF NOT EXISTS warn_appeals (id INTEGER PRIMARY KEY AUTOINCREMENT, target TEXT NOT NULL, text TEXT NOT NULL, created INTEGER NOT NULL,
+                                status TEXT NOT NULL DEFAULT 'open', answer TEXT NOT NULL DEFAULT '', closed INTEGER NOT NULL DEFAULT 0);
+        CREATE TABLE IF NOT EXISTS warn_log (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER NOT NULL, actor TEXT NOT NULL, action TEXT NOT NULL,
+                                target TEXT NOT NULL DEFAULT '', detail TEXT NOT NULL DEFAULT '');
+        PRAGMA user_version = 9;
+    ");
+    }
 }
 
 // ---------- Verschlüsselung der Sitzungs-Cookies ----------

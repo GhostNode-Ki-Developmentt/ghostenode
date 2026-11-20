@@ -1161,6 +1161,7 @@ function bytes(int $b): string {
                     <?php if (can('linkcheck.run')): ?><a href="linkcheck.php">🩺<span>Link-Check</span></a><?php endif; ?>
                     <?php if (can('backup.download')): ?><a href="backup.php">💾<span>Backup</span></a><?php endif; ?>
                     <a href="calendar.php">📅<span>Kalender</span></a>
+                    <?php if (can('admin.access')): ?><a href="nexuswarn.php">⚠<span>Nexus-Warnliste</span></a><?php endif; ?>
                     <?php if (can('budget.access')): ?><a href="budget.php">💶<span>Budget</span></a><?php endif; ?>
                     <?php if (can('settings.nsfw')): ?>
                         <form method="POST"><input type="hidden" name="action" value="toggle_nsfw"><input type="hidden" name="back" value="admin.php"><button>🔞<span>NSFW <?php echo $settings['show_nsfw'] ? 'ausblenden' : 'einblenden'; ?></span></button></form>
