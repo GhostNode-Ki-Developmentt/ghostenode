@@ -1,0 +1,8 @@
+<?php
+require __DIR__ . '/../../inc/core/pages.php';
+require __DIR__ . '/../../inc/modules/nexusacct.php';
+set_setting('vrc_api_base', 'http://127.0.0.1:8792/api/1');
+site_db()->exec("INSERT OR IGNORE INTO users (id, username, password_hash) VALUES (1, 'svc', 'x')");
+vrc_save_account(1, ['id' => 'usr_00000000-0000-4000-8000-000000000001', 'displayName' => 'Service'], ['auth' => 'mock']);
+set_setting('nexus_service_uid', '1');
+echo "ok\n";

@@ -224,6 +224,27 @@ function vrc_migrate(PDO $db): void {
         PRAGMA user_version = 10;
     ");
     }
+    if ((int)$db->query('PRAGMA user_version')->fetchColumn() < 11) {
+        // Nexus Community (nexuscomm.php): Profile, Beiträge (sfw/nsfw), Reaktionen, Bilder, Meldungen, Sanktionen
+        $db->exec("
+        CREATE TABLE IF NOT EXISTS comm_profiles (vrc_id TEXT PRIMARY KEY, bio TEXT NOT NULL DEFAULT '', pronouns TEXT NOT NULL DEFAULT '', languages TEXT NOT NULL DEFAULT '',
+                                interests TEXT NOT NULL DEFAULT '', links TEXT NOT NULL DEFAULT '[]', theme TEXT NOT NULL DEFAULT '', avatar TEXT NOT NULL DEFAULT '', banner TEXT NOT NULL DEFAULT '',
+                                nsfw_bio TEXT NOT NULL DEFAULT '', updated INTEGER NOT NULL DEFAULT 0);
+        CREATE TABLE IF NOT EXISTS comm_posts (id INTEGER PRIMARY KEY AUTOINCREMENT, author TEXT NOT NULL, rating TEXT NOT NULL DEFAULT 'sfw', text TEXT NOT NULL DEFAULT '',
+                                media TEXT NOT NULL DEFAULT '[]', parent INTEGER NOT NULL DEFAULT 0, created INTEGER NOT NULL, edited INTEGER NOT NULL DEFAULT 0,
+                                status TEXT NOT NULL DEFAULT 'visible', mod_note TEXT NOT NULL DEFAULT '');
+        CREATE INDEX IF NOT EXISTS idx_comm_feed ON comm_posts(rating, parent, status, id);
+        CREATE INDEX IF NOT EXISTS idx_comm_author ON comm_posts(author, created);
+        CREATE TABLE IF NOT EXISTS comm_reactions (post_id INTEGER NOT NULL, vrc_id TEXT NOT NULL, emoji TEXT NOT NULL, created INTEGER NOT NULL, PRIMARY KEY (post_id, vrc_id, emoji));
+        CREATE TABLE IF NOT EXISTS comm_media (id TEXT PRIMARY KEY, owner TEXT NOT NULL, mime TEXT NOT NULL, size INTEGER NOT NULL, rating TEXT NOT NULL DEFAULT 'sfw',
+                                status TEXT NOT NULL DEFAULT 'ok', created INTEGER NOT NULL);
+        CREATE TABLE IF NOT EXISTS comm_reports (id INTEGER PRIMARY KEY AUTOINCREMENT, post_id INTEGER NOT NULL, reporter TEXT NOT NULL, reason TEXT NOT NULL, created INTEGER NOT NULL,
+                                status TEXT NOT NULL DEFAULT 'open', resolver TEXT NOT NULL DEFAULT '', result TEXT NOT NULL DEFAULT '');
+        CREATE TABLE IF NOT EXISTS comm_sanctions (vrc_id TEXT PRIMARY KEY, mute_until INTEGER NOT NULL DEFAULT 0, banned INTEGER NOT NULL DEFAULT 0, note TEXT NOT NULL DEFAULT '',
+                                by_id TEXT NOT NULL DEFAULT '', at INTEGER NOT NULL DEFAULT 0);
+        PRAGMA user_version = 11;
+    ");
+    }
 }
 
 // ---------- Verschlüsselung der Sitzungs-Cookies ----------

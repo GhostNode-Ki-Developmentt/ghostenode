@@ -1,0 +1,47 @@
+<?php
+/**
+ * Nexus Community – Schnittstelle für die VRC-Nexus-App (JSON, ohne Sitzung/Cookies).
+ * <title>Nexus Community</title>
+ *
+ * Jede Anfrage: {"token": Konto-Token (nexusacct), "key": optional NXK1 mit Recht „mod“}
+ *   feed {rating:"sfw"|"nsfw", before, author} · thread {id} · post {text, rating, media[], parent} · edit {id,text} · delete {id}
+ *   react {id, emoji} · report {id, reason} · upload {data(base64), rating} · media {id} → Bild (binär)
+ *   profile {id} · profile_save {…} · mod_queue · mod {do, id, note, hours, vrc_id, media, report}
+ * NSFW wird bei jeder Anfrage serverseitig geprüft (Verified 18+ + NSFW an) – auch für Bilder und Antworten.
+ */
+require_once __DIR__ . '/inc/core/pages.php';
+require_once __DIR__ . '/inc/modules/nexuscomm.php';
+
+header('Cache-Control: no-store');
+header('X-Content-Type-Options: nosniff');
+$out = function (array $o, int $code = 200) { header('Content-Type: application/json; charset=utf-8'); http_response_code($code); echo json_encode($o, JSON_UNESCAPED_UNICODE); exit; };
+if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') $out(['error' => 'Nur POST.'], 405);
+$a = (string)($_GET['a'] ?? '');
+if (nw_rate_over('c|' . client_ip(), $a === 'media' ? 600 : 120)) $out(['error' => 'Zu viele Anfragen – kurz warten.'], 429);
+$in = json_decode((string)file_get_contents('php://input', false, null, 0, 8 * 1048576), true);
+if (!is_array($in)) $out(['error' => 'JSON erwartet.'], 400);
+try {
+    $who = nc_who($in);
+    switch ($a) {
+        case 'me': $out(['vrc_id' => $who['vrc_id'], 'mod' => $who['_mod'], 'nsfw' => $who['_nsfw'], 'reactions' => NC_REACTIONS, 'sanction' => nc_sanction($who['vrc_id'])]);
+        case 'feed': $out(['items' => nc_feed($who, (string)($in['rating'] ?? 'sfw'), (int)($in['before'] ?? 0), (string)($in['author'] ?? ''))]);
+        case 'thread': $out(nc_thread($who, (int)($in['id'] ?? 0)));
+        case 'post': $out(nc_create($who, $in));
+        case 'edit': $out(nc_edit($who, (int)($in['id'] ?? 0), (string)($in['text'] ?? '')));
+        case 'delete': $out(nc_delete($who, (int)($in['id'] ?? 0)));
+        case 'react': $out(nc_react($who, (int)($in['id'] ?? 0), (string)($in['emoji'] ?? '')));
+        case 'report': $out(nc_report($who, (int)($in['id'] ?? 0), (string)($in['reason'] ?? '')));
+        case 'upload': $out(nc_upload($who, $in));
+        case 'media': { [$mime, $bin] = nc_media_get($who, (string)($in['id'] ?? '')); header('Content-Type: ' . $mime); header('Content-Length: ' . strlen($bin)); echo $bin; exit; }
+        case 'profile': $out(['profile' => nc_profile($who, (string)($in['id'] ?? $who['vrc_id']))]);
+        case 'profile_save': $out(['profile' => nc_profile_save($who, $in), 'msg' => 'Profil gespeichert.']);
+        case 'mod_queue': $out(nc_mod_queue($who));
+        case 'mod': $out(nc_mod($who, (string)($in['do'] ?? ''), $in));
+    }
+    $out(['error' => 'Unbekannte Aktion.'], 400);
+} catch (NxError | NcError $e) {
+    $out(['error' => $e->getMessage()], $e->getMessage() === 'Nicht angemeldet.' ? 401 : 400);
+} catch (Throwable $e) {
+    error_log('nexuscomm: ' . $e->getMessage());
+    $out(['error' => 'Serverfehler.'], 500);
+}
