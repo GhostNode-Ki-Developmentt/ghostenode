@@ -6,6 +6,7 @@ require_once __DIR__ . '/inc/core/pages.php';
 require_once __DIR__ . '/inc/modules/linkcheck.php';
 require_once __DIR__ . '/inc/modules/countdown.php';
 require_once __DIR__ . '/inc/modules/hub.php';
+require_once __DIR__ . '/inc/admin/nexus_tabs.php';
 
 /** Nur lokale Ziele für die Weiterleitung nach dem Login zulassen */
 function safe_next(?string $next): string {
@@ -140,6 +141,10 @@ if ($mode === 'panel' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         'db_config' => 'database.manage', 'db_test' => 'database.manage', 'db_transfer' => 'database.manage', 'db_switch' => 'database.manage',
         'db_check' => 'database.manage', 'db_dump' => 'database.manage',
         'tasks_save' => 'system.manage', 'task_run' => 'system.manage', 'tasks_newkey' => 'system.manage', 'backup_delete' => 'backup.download', 'backup_now' => 'backup.download',
+        // Nexus (VRC Nexus: Konten, Warnliste, Community, Chat)
+        'nx_service' => 'admin.access', 'nx_ban' => 'admin.access', 'nx_unban' => 'admin.access', 'nx_age_revoke' => 'admin.access', 'nx_cron' => 'admin.access',
+        'nx_warn_settings' => 'admin.access', 'nx_warn_update' => 'admin.access', 'nx_warn_delete' => 'admin.access', 'nx_warn_clear' => 'admin.access', 'nx_warn_appeal' => 'admin.access',
+        'nx_comm' => 'admin.access', 'nx_chat_remove' => 'admin.access',
     ];
     // Während „Ansicht als Rolle“ zählt für diese Aktionen die echte Rolle nicht – nur die Vorschau beenden geht immer.
     guard_post($perm_for[$act] ?? null);
@@ -175,6 +180,7 @@ if ($mode === 'panel' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     };
 
     try {
+        if (isset($perm_for[$act]) && strpos($act, 'nx_') === 0) { $msg = admin_nexus_post($act, $_POST); $act = '__done'; }
         switch ($act) {
             case 'logout':
                 audit('Logout');
@@ -761,6 +767,7 @@ if ($mode === 'panel') {
         'audit'    => ['📜', 'Protokoll', 'audit.view'],
         'database' => ['🗄️', 'Datenbank', 'database.manage'],
         'system'   => ['🛰️', 'System', 'system.manage'],
+    ] + NX_ADMIN_TABS + [
         'account'  => ['👤', 'Mein Konto', null],
     ];
     $TABS = array_filter($TABS, function ($t) { return $t[2] === null || count(array_filter((array)$t[2], 'can')) > 0; });
@@ -782,6 +789,11 @@ if ($mode === 'panel') {
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['to'] ?? '')) { $where[] = 'ts <= :to'; $args[':to'] = $_GET['to'] . ' 23:59:59'; }
         return [$where ? ' WHERE ' . implode(' AND ', $where) : '', $args];
     };
+    if ($tab === 'nx_comm' && isset($_GET['nx_img'])) {   // Vorschau für die Bild-Freigabe (nur Admins)
+        try { [$mime, $bin] = nc_media_get(['vrc_id' => 'web', '_mod' => true, '_nsfw' => true], (string)$_GET['nx_img']); }
+        catch (Throwable $e) { http_response_code(404); exit; }
+        header('Content-Type: ' . $mime); header('Cache-Control: private, no-store'); header('X-Content-Type-Options: nosniff'); echo $bin; exit;
+    }
     if ($tab === 'audit' && isset($_GET['export'])) {
         if (!can('audit.export')) { header('Location: admin.php?tab=audit&error=' . urlencode('Für den Export fehlt das Recht „Protokoll als CSV exportieren“.')); exit; }
         [$sqlw, $args] = $audit_where();
@@ -1771,6 +1783,8 @@ function bytes(int $b): string {
             </div>
         </div>
 
+<?php elseif (isset(NX_ADMIN_TABS[$tab])): ?>
+        <?php admin_nexus_view($tab); ?>
 <?php elseif ($tab === 'account'): ?>
         <div class="grid2">
             <form method="POST" class="panel" autocomplete="off">
