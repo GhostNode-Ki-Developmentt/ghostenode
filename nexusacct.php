@@ -8,6 +8,7 @@
  *   POST nexusacct.php?a=verify   {"vrc_id","device"}           → {"token":"…","account":{…}}  (Bio wird über das Dienst-Konto geprüft)
  *   POST nexusacct.php?a=me       {"token"}                     → {"account":{…},"devices":[…]}
  *   POST nexusacct.php?a=nsfw     {"token","on":true|false}     → {"account":{…}}              (nur mit Verified 18+)
+ *   POST nexusacct.php?a=age      {"token","status"}            → {"account":{…}}  (Ergebnis von VRChat GET /ageVerification/status aus der App)
  *   POST nexusacct.php?a=recheck  {"token"}                     → {"account":{…}}
  *   POST nexusacct.php?a=peer     {"token","uid"}              → {"nsfw":bool}  (nur wenn man selbst NSFW-freigegeben ist)
  *   POST nexusacct.php?a=logout   {"token","device"?}
@@ -24,7 +25,7 @@ if (isset($_GET['a'])) {
     if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') $out(['error' => 'Nur POST.'], 405);
     $a = (string)$_GET['a'];
     // Bremse pro IP; Code/Prüfen strenger (fragt VRChat ab)
-    if (nw_rate_over(client_ip(), 60) || (in_array($a, ['code', 'verify', 'recheck'], true) && nw_rate_over('v|' . client_ip(), 10))) $out(['error' => 'Zu viele Anfragen – kurz warten.'], 429);
+    if (nw_rate_over(client_ip(), 60) || (in_array($a, ['code', 'verify'], true) && nw_rate_over('v|' . client_ip(), 10))) $out(['error' => 'Zu viele Anfragen – kurz warten.'], 429);
     $in = json_decode((string)file_get_contents('php://input', false, null, 0, 8000), true);
     if (!is_array($in)) $out(['error' => 'JSON erwartet.'], 400);
     try {
@@ -35,6 +36,7 @@ if (isset($_GET['a'])) {
             case 'me': nx_verified18($acc); $out(['account' => nx_public($acc), 'devices' => nx_devices($acc)]);
             case 'nsfw': $out(['account' => nx_set_nsfw($acc, !empty($in['on']))]);
             case 'recheck': $out(['account' => nx_recheck($acc)]);
+            case 'age': $out(['account' => nx_report_age($acc, (string)($in['status'] ?? ''))]);   // VRChat /ageVerification/status, abgefragt von der App
             case 'peer': {
                 // Darf die andere Person NSFW (z. B. Spielzeug-Fernsteuerung)? Nur für selbst freigegebene Konten abfragbar.
                 nx_require_nsfw($acc);
