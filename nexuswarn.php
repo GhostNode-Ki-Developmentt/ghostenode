@@ -8,7 +8,7 @@
  *   POST nexuswarn.php?a=report    {"token","target","name","reason","note","evidence","days","reporter_name"}
  *   POST nexuswarn.php?a=withdraw  {"token","target"}
  *   POST nexuswarn.php?a=appeal    {"token","text"}                                  (nur für die eigene ID)
- *   POST nexuswarn.php?a=admin_*   {"token", …}                                      (Besitzerin oder Warnlisten-Admin)
+ *   POST nexuswarn.php?a=admin_*   {"token", …}                                      (Besitzerin oder Moderator)
  * Webseite: GET nexuswarn.php → Verwaltung für angemeldete Webseiten-Admins (Recht „admin.access“).
  */
 require_once __DIR__ . '/inc/core/pages.php';
@@ -31,7 +31,7 @@ if (isset($_GET['a'])) {
         $who = nw_auth((string)($in['token'] ?? ''));
         if (mt_rand(1, 50) === 1) nw_cleanup();
         if (strpos($a, 'admin_') === 0) {
-            if (!$who['admin']) $out(['error' => 'Nur für Admins der Warnliste.'], 403);
+            if (!$who['admin']) $out(['error' => 'Nur für Moderatoren.'], 403);
             $out(nw_admin($who['uid'], $a, $in));
         }
         switch ($a) {
@@ -97,7 +97,7 @@ $reasonSel = function (string $cur) { $h = '<select name="reason">'; foreach (NW
 <body>
 <div class="nw-wrap">
     <h1>⚠ NEXUS-WARNLISTE</h1>
-    <p class="nw-muted">Gemeinsame Warnliste der VRC-Nexus-App (Crasher, Ripper, Troller). Sichtbar für freigeschaltete Nutzer erst ab <b><?= (int)$d['min'] ?></b> unabhängigen Meldungen. Admins der Warnliste ernennt die Besitzerin in der App (👑 Admin → Freischalt-Schlüssel mit Recht „Warnlisten-Admin“).</p>
+    <p class="nw-muted">Gemeinsame Warnliste der VRC-Nexus-App (Crasher, Ripper, Troller). Sichtbar für freigeschaltete Nutzer erst ab <b><?= (int)$d['min'] ?></b> unabhängigen Meldungen. Moderatoren ernennt die Besitzerin in der App (👑 Admin → Freischalt-Schlüssel mit Recht „🛡 Moderator“).</p>
     <?php if ($msg !== ''): ?><p class="nw-msg"><?= e($msg) ?></p><?php endif; ?>
 
     <section class="nw-sec"><h2>Einstellungen</h2>

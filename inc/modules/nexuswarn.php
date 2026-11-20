@@ -7,8 +7,8 @@
  *    Die Webseite prüft die Unterschrift selbst – ein Schlüssel lässt sich nicht fälschen oder auf eine andere ID umschreiben.
  *  - Sichtbar wird eine Warnung erst ab N unabhängigen Meldern (Standard 2, im Admin einstellbar).
  *  - Beweis ist Pflicht, Meldungen verfallen (Standard 6 Monate, höchstens 1 Jahr).
- *  - Betroffene können Einspruch einlegen (mit eigenem Schlüssel). Admin (Besitzerin + von ihr ernannte Warnlisten-Admins
- *    mit dem Recht „warnadmin“ im Schlüssel, außerdem Webseiten-Admins): alles sehen, bearbeiten, löschen, Einsprüche bearbeiten,
+ *  - Betroffene können Einspruch einlegen (mit eigenem Schlüssel). Admin (Besitzerin + von ihr ernannte Moderatoren
+ *    mit dem Recht „mod“ im Schlüssel, außerdem Webseiten-Admins): alles sehen, bearbeiten, löschen, Einsprüche bearbeiten,
  *    Schlüssel sperren. Jede Änderung landet im Protokoll.
  * Datensparsam: gespeichert werden nur User-IDs, Anzeigenamen, Grund, Notiz, Beweis-Text und Zeiten.
  * Tabellen liegen im Modul „vrchat“ (Migration 9 in inc/modules/vrchat.php).
@@ -73,8 +73,8 @@ function nw_auth(string $token): array {
     if ($kid !== '' && in_array($kid, nw_revoked(), true)) throw new NwError('Der Schlüssel wurde gesperrt.');
     $uid = strtolower((string)$p['uid']);
     $f = is_array($p['f'] ?? null) ? $p['f'] : [];
-    // Admin = Besitzerin oder Schlüssel mit dem Recht „warnadmin“ (vergibt nur die Besitzerin im Admin-Bereich der App)
-    return ['uid' => $uid, 'admin' => nw_is_owner($uid) || in_array('warnadmin', $f, true), 'owner' => nw_is_owner($uid), 'kid' => $kid];
+    // Admin = Besitzerin oder Schlüssel mit dem Recht „mod“ (Moderator) (vergibt nur die Besitzerin im Admin-Bereich der App)
+    return ['uid' => $uid, 'admin' => nw_is_owner($uid) || in_array('mod', $f, true), 'owner' => nw_is_owner($uid), 'kid' => $kid];
 }
 
 function nw_log(string $actor, string $action, string $target = '', string $detail = ''): void {
