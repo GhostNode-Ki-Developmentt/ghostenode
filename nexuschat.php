@@ -12,7 +12,9 @@
  *   fetch    {token, device}                  → {msgs:[{id, from, from_dev, body, at}], opks}
  *   ack      {token, device, ids:[…]}
  *   remove   {token, device}
- * Nachrichten liegen höchstens 30 Tage und werden nach dem Abholen gelöscht.
+ *   blob_put {token, data(b64, Chiffretext ≤ 7 MB), allow:[uid…]}  → {id}     (3.4: verschlüsselte Bilder; Schlüssel steckt nur in der E2E-Nachricht)
+ *   blob_get {token, id}                       → Chiffretext (nur Absender und erlaubte Empfänger)
+ * Nachrichten liegen höchstens 30 Tage und werden nach dem Abholen gelöscht; Bilder höchstens 30 Tage.
  */
 require_once __DIR__ . '/inc/core/pages.php';
 require_once __DIR__ . '/inc/modules/nexusacct.php';
@@ -24,7 +26,7 @@ $out = function (array $o, int $code = 200) { http_response_code($code); echo js
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') $out(['error' => 'Nur POST.'], 405);
 $a = (string)($_GET['a'] ?? '');
 if (nw_rate_over('ch|' . client_ip(), 240)) $out(['error' => 'Zu viele Anfragen – kurz warten.'], 429);
-$in = json_decode((string)file_get_contents('php://input', false, null, 0, 1048576), true);
+$in = json_decode((string)file_get_contents('php://input', false, null, 0, $a === 'blob_put' ? 10 * 1048576 : 1048576), true);
 if (!is_array($in)) $out(['error' => 'JSON erwartet.'], 400);
 
 function ch_db(): PDO { return db_get('vrchat'); }
@@ -37,6 +39,15 @@ function ch_dev(array $acc, string $dev): array {
     ch_db()->prepare('UPDATE chat_devices SET last_seen = ? WHERE device_id = ?')->execute([time(), $dev]);
     return $d;
 }
+function ch_blob_dir(): string {
+    $d = DATA_DIR . '/chatblobs';
+    if (!is_dir($d)) { @mkdir($d, 0700, true); @file_put_contents($d . '/.htaccess', "Require all denied\nDeny from all\n"); }
+    return $d;
+}
+function ch_blob_cleanup(PDO $db): void {
+    $old = $db->prepare('SELECT id FROM chat_blobs WHERE created < ?'); $old->execute([time() - 30 * 86400]);
+    foreach ($old->fetchAll(PDO::FETCH_COLUMN) as $id) { @unlink(ch_blob_dir() . '/' . $id . '.bin'); $db->prepare('DELETE FROM chat_blobs WHERE id = ?')->execute([$id]); }
+}
 function ch_opks(string $dev): int { $st = ch_db()->prepare('SELECT COUNT(*) FROM chat_opks WHERE device_id = ?'); $st->execute([$dev]); return (int)$st->fetchColumn(); }
 function ch_devices(string $uid): array {
     $st = ch_db()->prepare('SELECT * FROM chat_devices WHERE vrc_id = ? AND last_seen > ? ORDER BY created');
@@ -47,7 +58,7 @@ function ch_devices(string $uid): array {
 try {
     $acc = nx_auth((string)($in['token'] ?? ''));
     $db = ch_db();
-    if (mt_rand(1, 100) === 1) $db->prepare('DELETE FROM chat_inbox WHERE created < ?')->execute([time() - 30 * 86400]);
+    if (mt_rand(1, 100) === 1) { $db->prepare('DELETE FROM chat_inbox WHERE created < ?')->execute([time() - 30 * 86400]); ch_blob_cleanup($db); }
     switch ($a) {
         case 'publish': {
             $ikd = ch_key((string)($in['ik_dh'] ?? '')); $iks = ch_key((string)($in['ik_sig'] ?? ''));
@@ -71,7 +82,8 @@ try {
         case 'devices': {
             $uid = strtolower((string)($in['uid'] ?? ''));
             if (!nx_uid_ok($uid)) throw new NxError('Ungültige VRChat-User-ID.');
-            $out(['devices' => array_map(fn($d) => ['device' => $d['device_id'], 'ik_dh' => $d['ik_dh'], 'ik_sig' => $d['ik_sig'], 'created' => (int)$d['created']], ch_devices($uid))]);
+            $own = $uid === strtolower((string)$acc['vrc_id']);   // „zuletzt aktiv“ nur für die eigenen Geräte (3.4 Geräte-Übersicht)
+            $out(['devices' => array_map(fn($d) => ['device' => $d['device_id'], 'ik_dh' => $d['ik_dh'], 'ik_sig' => $d['ik_sig'], 'created' => (int)$d['created']] + ($own ? ['last_seen' => (int)$d['last_seen']] : []), ch_devices($uid))]);
         }
         case 'bundles': {
             $uid = strtolower((string)($in['uid'] ?? ''));
@@ -119,6 +131,29 @@ try {
             $del = $db->prepare('DELETE FROM chat_inbox WHERE id = ? AND to_device = ?');
             foreach (array_slice((array)($in['ids'] ?? []), 0, 500) as $id) $del->execute([(int)$id, $d['device_id']]);
             $out(['ok' => true]);
+        }
+        case 'blob_put': {
+            $bin = base64_decode((string)($in['data'] ?? ''), true);
+            if ($bin === false || strlen($bin) < 32 || strlen($bin) > 7 * 1048576) throw new NxError('Bild fehlt oder ist zu groß (max. 5 MB).');
+            $allow = [];
+            foreach (array_slice((array)($in['allow'] ?? []), 0, 60) as $u) { $u = strtolower((string)$u); if (nx_uid_ok($u)) $allow[$u] = true; }
+            $allow[strtolower($acc['vrc_id'])] = true;
+            $n = $db->prepare('SELECT COALESCE(SUM(size), 0) FROM chat_blobs WHERE owner = ? AND created > ?'); $n->execute([$acc['vrc_id'], time() - 86400]);
+            if ((int)$n->fetchColumn() + strlen($bin) > 200 * 1048576) throw new NxError('Tageslimit für Bilder erreicht (200 MB).');
+            $id = bin2hex(random_bytes(16));
+            if (@file_put_contents(ch_blob_dir() . '/' . $id . '.bin', $bin) === false) throw new NxError('Speichern fehlgeschlagen.');
+            $db->prepare('INSERT INTO chat_blobs (id, owner, allow, size, created) VALUES (?, ?, ?, ?, ?)')->execute([$id, $acc['vrc_id'], implode(',', array_keys($allow)), strlen($bin), time()]);
+            $out(['id' => $id]);
+        }
+        case 'blob_get': {
+            $id = (string)($in['id'] ?? '');
+            if (!preg_match('/^[0-9a-f]{32}$/', $id)) throw new NxError('Unbekanntes Bild.');
+            $st = $db->prepare('SELECT allow FROM chat_blobs WHERE id = ?'); $st->execute([$id]);
+            $allow = $st->fetchColumn();
+            if ($allow === false || !in_array(strtolower($acc['vrc_id']), explode(',', (string)$allow), true)) throw new NxError('Bild nicht gefunden oder abgelaufen.');
+            $bin = @file_get_contents(ch_blob_dir() . '/' . $id . '.bin');
+            if ($bin === false) throw new NxError('Bild nicht gefunden oder abgelaufen.');
+            header('Content-Type: application/octet-stream'); header('Content-Length: ' . strlen($bin)); echo $bin; exit;
         }
         case 'remove': {
             $dev = (string)($in['device'] ?? '');

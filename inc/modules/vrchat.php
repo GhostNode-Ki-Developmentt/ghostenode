@@ -274,6 +274,14 @@ function vrc_migrate(PDO $db): void {
         PRAGMA user_version = 14;
     ");
     }
+    if ((int)$db->query('PRAGMA user_version')->fetchColumn() < 15) {
+        // Nexus-Chat 3.4: verschlüsselte Bilder (Chiffretext als Datei, Schlüssel nur in der E2E-Nachricht) – nur Absender + Empfänger dürfen laden
+        $db->exec("
+        CREATE TABLE IF NOT EXISTS chat_blobs (id TEXT PRIMARY KEY, owner TEXT NOT NULL, allow TEXT NOT NULL, size INTEGER NOT NULL, created INTEGER NOT NULL);
+        CREATE INDEX IF NOT EXISTS idx_chat_blobs_created ON chat_blobs(created);
+        PRAGMA user_version = 15;
+    ");
+    }
 }
 
 // ---------- Verschlüsselung der Sitzungs-Cookies ----------
