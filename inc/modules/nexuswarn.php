@@ -73,9 +73,12 @@ function nw_auth(string $token): array {
     $kid = (string)($p['id'] ?? '');
     if ($kid !== '' && in_array($kid, nw_revoked(), true)) throw new NwError('Der Schlüssel wurde gesperrt.');
     $uid = strtolower((string)$p['uid']);
+    // 3.4 Multiaccount-Schlüssel: Haupt-ID + gebundene Zweitkonten (uids, höchstens 9)
+    $uids = [$uid];
+    foreach (array_slice(is_array($p['uids'] ?? null) ? $p['uids'] : [], 0, 9) as $x) { $x = strtolower((string)$x); if (preg_match(NW_UID, $x) && !in_array($x, $uids, true)) $uids[] = $x; }
     $f = is_array($p['f'] ?? null) ? $p['f'] : [];
     // Admin = Besitzerin oder Schlüssel mit dem Recht „mod“ (Moderator) (vergibt nur die Besitzerin im Admin-Bereich der App)
-    return ['uid' => $uid, 'admin' => nw_is_owner($uid) || in_array('mod', $f, true), 'owner' => nw_is_owner($uid), 'kid' => $kid];
+    return ['uid' => $uid, 'uids' => $uids, 'admin' => nw_is_owner($uid) || in_array('mod', $f, true), 'owner' => nw_is_owner($uid), 'kid' => $kid];
 }
 
 function nw_log(string $actor, string $action, string $target = '', string $detail = ''): void {

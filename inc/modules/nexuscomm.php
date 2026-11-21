@@ -31,7 +31,7 @@ function nc_dir(): string {
 function nc_who(array $in): array {
     $a = nx_auth((string)($in['token'] ?? ''));
     $mod = false;
-    if (!empty($in['key'])) { try { $k = nw_auth((string)$in['key']); $mod = $k['admin'] && $k['uid'] === $a['vrc_id']; } catch (Throwable $e) { $mod = false; } }
+    if (!empty($in['key'])) { try { $k = nw_auth((string)$in['key']); $mod = $k['admin'] && in_array(strtolower((string)$a['vrc_id']), $k['uids'] ?? [$k['uid']], true); /* 3.4: auch Zweitkonten eines Multiaccount-Schlüssels */ } catch (Throwable $e) { $mod = false; } }
     $a['_mod'] = $mod;
     $a['_nsfw'] = nx_nsfw_allowed($a);
     return $a;
