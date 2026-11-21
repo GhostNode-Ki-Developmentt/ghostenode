@@ -320,7 +320,7 @@ function vrc_avatar_db_search(int $provider, string $q): array {
     $ch = curl_init($url);
     curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 20, CURLOPT_CONNECTTIMEOUT => 8, CURLOPT_FOLLOWLOCATION => false,
                             CURLOPT_PROTOCOLS => CURLPROTO_HTTPS, CURLOPT_MAXFILESIZE => 20000000,
-                            CURLOPT_HTTPHEADER => ['Accept: application/json', 'User-Agent: GhostNode-Dashboard/1.0 (VRC Nexus avatar search)']]);
+                            CURLOPT_HTTPHEADER => ['Accept: application/json', 'User-Agent: GhostNode-Dashboard/1.0 (mail@xxloonaxx.de)']]);
     if ($resolved) curl_setopt($ch, CURLOPT_RESOLVE, [$host . ':' . ((int)parse_url($url, PHP_URL_PORT) ?: 443) . ':' . $ip]);   // geprüfte Adresse festhalten
     $raw = curl_exec($ch);
     $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
