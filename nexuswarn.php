@@ -29,9 +29,6 @@ if (isset($_GET['a'])) {
     $a = (string)$_GET['a'];
     try {
         $who = nw_auth((string)($in['token'] ?? ''));
-        // 3.4 Multiaccount: die App sagt, mit welchem der gebundenen Konten sie gerade angemeldet ist
-        $as = strtolower((string)($in['as'] ?? ''));
-        if ($as !== '' && $as !== $who['uid'] && in_array($as, $who['uids'], true)) { $who['uid'] = $as; $who['owner'] = nw_is_owner($as); }
         if (mt_rand(1, 50) === 1) nw_cleanup();
         if (strpos($a, 'admin_') === 0) {
             if (!$who['admin']) $out(['error' => 'Nur für Moderatoren.'], 403);
